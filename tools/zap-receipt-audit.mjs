@@ -136,7 +136,11 @@ function evaluate(receipt) {
       if (!recP) { stats.pMissing++; return record('pMissing', id); }
       if (!reqP || reqP.toLowerCase() !== recP.toLowerCase()) { stats.pMismatch++; return record('pMismatch', id); }
       const reqE = tag(request, 'e'), recE = tag(receipt, 'e');
-      if (reqE && recE && reqE.toLowerCase() !== recE.toLowerCase()) { stats.eMismatch++; return record('eMismatch', id); }
+      if ((reqE == null) !== (recE == null)) { stats.ePresenceMismatch++; return record('ePresenceMismatch', id); }
+      if (reqE && reqE.toLowerCase() !== recE.toLowerCase()) { stats.eMismatch++; return record('eMismatch', id); }
+      const recPMirror = tag(receipt, 'P');
+      if (recPMirror && recPMirror.toLowerCase() !== request.pubkey.toLowerCase()) { stats.pMirrorMismatch++; return record('pMirrorMismatch', id); }
+      if (!tag(request, 'amount')) stats.requestWithoutAmount = (stats.requestWithoutAmount || 0) + 1;
       const bolt11 = tag(receipt, 'bolt11');
       if (!bolt11) { stats.bolt11Missing++; return record('bolt11Missing', id); }
       const inv = decodeInvoice(bolt11);
