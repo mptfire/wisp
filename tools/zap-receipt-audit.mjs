@@ -135,8 +135,20 @@ function evaluate(receipt) {
       const reqP = tag(request, 'p'), recP = tag(receipt, 'p');
       if (!recP) { stats.pMissing++; return record('pMissing', id); }
       if (!reqP || reqP.toLowerCase() !== recP.toLowerCase()) { stats.pMismatch++; return record('pMismatch', id); }
+      for (const [nm, side] of [['p', receipt], ['e', receipt], ['description', receipt], ['bolt11', receipt]]) {
+        const cnt = (side.tags || []).filter(t => Array.isArray(t) && t.length >= 2 && t[0] === nm).length;
+        if (cnt > 1) { stats['dup' + nm + 'InReceipt'] = (stats['dup' + nm + 'InReceipt'] || 0) + 1; return record('dup' + nm + 'Receipt', id); }
+      }
+      for (const nm of ['p', 'e', 'amount']) {
+        const cnt = (request.tags || []).filter(t => Array.isArray(t) && t.length >= 2 && t[0] === nm).length;
+        if (cnt > 1) { stats['dup' + nm + 'InRequest'] = (stats['dup' + nm + 'InRequest'] || 0) + 1; return record('dup' + nm + 'Request', id); }
+      }
       const reqE = tag(request, 'e'), recE = tag(receipt, 'e');
-      if ((reqE == null) !== (recE == null)) { stats.ePresenceMismatch++; return record('ePresenceMismatch', id); }
+      if ((reqE == null) !== (recE == null)) {
+        const dir = reqE == null ? 'retarget' : 'omitted';
+        stats['ePresence_' + dir] = (stats['ePresence_' + dir] || 0) + 1;
+        if (dir === 'retarget') return record('ePresenceMismatch', id);
+      }
       if (reqE && reqE.toLowerCase() !== recE.toLowerCase()) { stats.eMismatch++; return record('eMismatch', id); }
       const recPMirror = tag(receipt, 'P');
       if (recPMirror && recPMirror.toLowerCase() !== request.pubkey.toLowerCase()) { stats.pMirrorMismatch++; return record('pMirrorMismatch', id); }
