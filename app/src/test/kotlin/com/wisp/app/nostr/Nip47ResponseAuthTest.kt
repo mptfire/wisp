@@ -12,8 +12,10 @@ import org.junit.Test
  * authentication boundary for everything that can complete a pending wallet
  * request. Uses synthetic keys and real Schnorr operations.
  *
- * The file deliberately avoids Android-only APIs so the identical source runs
- * in the isolated JVM harness used for local validation.
+ * The file deliberately avoids Android-only APIs: it runs as a plain JVM
+ * unit test (via the secp256k1 JVM JNI test dependencies), in the isolated
+ * validation harness, and as an instrumented test from its previous
+ * androidTest location.
  */
 class Nip47ResponseAuthTest {
     private val wallet = Keys.generate()   // wallet service

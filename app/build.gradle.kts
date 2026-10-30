@@ -87,6 +87,15 @@ dependencies {
     testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
+    // JVM secp256k1 natives so the crypto regression suites run as plain
+    // unit tests (see the NIP-57 PR for the same additions).
+    testImplementation(libs.secp256k1.kmp.jvm)
+    testImplementation(libs.secp256k1.kmp.jni.jvm)
+    testImplementation(libs.secp256k1.kmp.jni.common)
+    testImplementation(libs.secp256k1.kmp.jni.jvm.extract)
+    testImplementation(libs.secp256k1.kmp.jni.jvm.linux)
+    testImplementation(libs.secp256k1.kmp.jni.jvm.darwin)
+    testImplementation(libs.secp256k1.kmp.jni.jvm.mingw)
 
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.runner)
