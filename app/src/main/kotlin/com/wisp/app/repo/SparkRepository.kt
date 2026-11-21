@@ -330,9 +330,6 @@ class SparkRepository(
         return normalizeMnemonic(current) == normalizeMnemonic(derived)
     }
 
-    private fun normalizeMnemonic(mnemonic: String): String =
-        mnemonic.trim().lowercase().replace(Regex("\\s+"), " ")
-
     fun isSeedBackupAcknowledged(): Boolean =
         encPrefs.getBoolean("seed_backup_acked", false)
 
