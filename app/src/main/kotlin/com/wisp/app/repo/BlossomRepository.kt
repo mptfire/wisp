@@ -138,7 +138,11 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
                 .header("Content-Type", mimeType)
                 .build()
 
-            httpClient.newCall(request).execute().use { response ->
+            // try/finally instead of Closeable.use: non-local break/continue in
+            // inline lambdas is restricted (Kotlin 2.x), and the /media 404
+            // fall-through needs loop control here.
+            val response = httpClient.newCall(request).execute()
+            try {
                 if (response.isSuccessful) {
                     val responseBody = SafeHttp.readUtf8Capped(response.body, SafeHttp.DEFAULT_MAX_JSON_BYTES)
                         ?: throw Exception("Empty or oversized response")
@@ -162,6 +166,8 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
                 }
                 if (response.code == 404 && path == "/media") continue
                 throw Exception("Upload failed: ${response.code} ${response.message}")
+            } finally {
+                response.close()
             }
         }
         throw Exception("Upload failed")
