@@ -7,7 +7,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
-import okhttp3.Request
+import java.net.URLEncoder
 
 enum class Nip05Result {
     /** Pubkey matches the NIP-05 record. */
@@ -36,17 +36,20 @@ object Nip05 {
                 val parts = identifier.split("@", limit = 2)
                 if (parts.size != 2) return@withContext Nip05Result.ERROR
 
-                val local = parts[0].ifEmpty { return@withContext Nip05Result.ERROR }
-                val domain = parts[1].ifEmpty { return@withContext Nip05Result.ERROR }
+                val local = parts[0].trim().ifEmpty { return@withContext Nip05Result.ERROR }
+                val domain = parts[1].trim().ifEmpty { return@withContext Nip05Result.ERROR }
+                if (!SafeHttp.isAllowedPublicHost(domain)) return@withContext Nip05Result.ERROR
 
-                val url = "https://$domain/.well-known/nostr.json?name=$local"
-                val request = Request.Builder().url(url).build()
-                val response = httpClient.newCall(request).execute()
+                val encodedLocal = URLEncoder.encode(local, "UTF-8")
+                val url = "https://$domain/.well-known/nostr.json?name=$encodedLocal"
+                val response = SafeHttp.executeGuardedGet(httpClient, url)
+                    ?: return@withContext Nip05Result.ERROR
 
                 response.use {
                     if (!it.isSuccessful) return@withContext Nip05Result.ERROR
 
-                    val body = it.body?.string() ?: return@withContext Nip05Result.ERROR
+                    val body = SafeHttp.readUtf8Capped(it.body, SafeHttp.DEFAULT_MAX_JSON_BYTES)
+                        ?: return@withContext Nip05Result.ERROR
                     val root = json.parseToJsonElement(body).jsonObject
                     val names = root["names"]?.jsonObject ?: return@withContext Nip05Result.MISMATCH
                     // Case-insensitive lookup per NIP-05 spec (servers may return capitalized keys)
@@ -77,14 +80,18 @@ object Nip05 {
             try {
                 val parts = identifier.split("@", limit = 2)
                 if (parts.size != 2) return@withContext null
-                val local = parts[0].ifEmpty { "_" }
-                val domain = parts[1].ifEmpty { return@withContext null }
+                val local = parts[0].trim().ifEmpty { "_" }
+                val domain = parts[1].trim().ifEmpty { return@withContext null }
+                if (!SafeHttp.isAllowedPublicHost(domain)) return@withContext null
 
-                val url = "https://$domain/.well-known/nostr.json?name=$local"
-                val request = Request.Builder().url(url).build()
-                httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@withContext null
-                    val body = response.body?.string() ?: return@withContext null
+                val encodedLocal = URLEncoder.encode(local, "UTF-8")
+                val url = "https://$domain/.well-known/nostr.json?name=$encodedLocal"
+                val response = SafeHttp.executeGuardedGet(httpClient, url)
+                    ?: return@withContext null
+                response.use {
+                    if (!it.isSuccessful) return@withContext null
+                    val body = SafeHttp.readUtf8Capped(it.body, SafeHttp.DEFAULT_MAX_JSON_BYTES)
+                        ?: return@withContext null
                     val root = json.parseToJsonElement(body).jsonObject
                     val names = root["names"]?.jsonObject ?: return@withContext null
                     val pubkey = (names[local] ?: names.entries.firstOrNull { entry ->

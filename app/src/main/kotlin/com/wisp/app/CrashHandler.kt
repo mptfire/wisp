@@ -26,6 +26,21 @@ object CrashHandler {
         }
     }
 
+    private val secretPatterns = listOf(
+        Regex("nsec1[a-z0-9]{58}", RegexOption.IGNORE_CASE) to "nsec1[REDACTED]",
+        Regex("nostr\\+walletconnect://\\S+", RegexOption.IGNORE_CASE) to "nostr+walletconnect://[REDACTED]",
+        Regex("Bearer\\s+[A-Za-z0-9._~+/=-]+", RegexOption.IGNORE_CASE) to "Bearer [REDACTED]",
+        Regex("(secret|privkey|mnemonic)\\s*[=:]\\s*[^\\s,&\"']+", RegexOption.IGNORE_CASE) to "$1=[REDACTED]"
+    )
+
+    internal fun redactSecrets(text: String): String {
+        var out = text
+        for ((pattern, replacement) in secretPatterns) {
+            out = pattern.replace(out, replacement)
+        }
+        return out
+    }
+
     private fun writeCrashLog(context: Context, throwable: Throwable) {
         try {
             val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
@@ -45,7 +60,7 @@ object CrashHandler {
                 appendLine("Android: ${Build.VERSION.SDK_INT}")
                 appendLine()
                 appendLine("Stack trace:")
-                appendLine(throwable.stackTraceToString())
+                appendLine(redactSecrets(throwable.stackTraceToString()))
             }
 
             File(context.filesDir, CRASH_LOG_FILE).writeText(log)
@@ -79,7 +94,7 @@ object CrashHandler {
             senderPrivkey = keypair.privkey,
             senderPubkey = keypair.pubkey,
             recipientPubkey = recipientPubkey,
-            message = crashLog
+            message = redactSecrets(crashLog)
         )
         val msg = ClientMessage.event(wrap)
 

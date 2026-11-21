@@ -6,9 +6,9 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
+import com.wisp.app.nostr.SafeHttp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 
@@ -28,16 +28,37 @@ object MediaDownloader {
     private val httpClient
         get() = com.wisp.app.relay.HttpClientFactory.getDownloadClient()
 
+    internal fun sanitizeFileName(raw: String): String {
+        val base = raw.substringAfterLast('/').substringAfterLast('\\')
+            .substringBefore('?').substringBefore('#')
+        val stripped = buildString {
+            for (c in base) {
+                if (c.code < 0x20 || c.code == 0x7f) continue
+                if (c in setOf(':', '*', '?', '"', '<', '>', '|', '/', '\\')) continue
+                append(c)
+            }
+        }
+        var cleaned = stripped
+        while (true) {
+            val next = cleaned.trim().trimStart('.').trimEnd('.', ' ')
+            if (next == cleaned) break
+            cleaned = next
+        }
+        if (cleaned.length > 180) cleaned = cleaned.take(180).trimEnd('.', ' ')
+        return if (cleaned.isEmpty() || cleaned == "." || cleaned == "..") "download" else cleaned
+    }
+
     suspend fun downloadMedia(context: Context, url: String) {
         try {
             withContext(Dispatchers.IO) {
-                val request = Request.Builder().url(url).build()
-                httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) error("Download failed: ${response.code}")
-                    val responseMimeType = response.header("Content-Type")?.substringBefore(';')?.trim()
-                    val body = response.body ?: error("Empty response")
+                val response = SafeHttp.executeGuardedGet(httpClient, url)
+                    ?: error("Blocked or invalid media URL")
+                response.use { resp ->
+                    if (!resp.isSuccessful) error("Download failed: ${resp.code}")
+                    val responseMimeType = resp.header("Content-Type")?.substringBefore(';')?.trim()
+                    val body = resp.body ?: error("Empty response")
 
-                    val rawName = url.substringAfterLast('/').substringBefore('?').ifEmpty { "download" }
+                    val rawName = sanitizeFileName(url)
                     val ext = rawName.substringAfterLast('.', "").lowercase()
                     val mimeType = mimeTypes[ext] ?: responseMimeType ?: "application/octet-stream"
                     val fileName = if (ext.isEmpty() || ext == rawName) {

@@ -89,11 +89,13 @@ import com.wisp.app.nostr.toNpub
 import com.wisp.app.ui.screen.GroupChatHorizontalChipStrip
 import com.wisp.app.nostr.DmReaction
 import com.wisp.app.nostr.EncryptedMedia
+import com.wisp.app.nostr.SafeHttp
+import com.wisp.app.nostr.toHex
 import com.wisp.app.ui.component.FullScreenEncryptedImageViewer
 import com.wisp.app.repo.EventRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.Request
+import java.security.MessageDigest
 import com.wisp.app.ui.theme.WispThemeColors
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -774,6 +776,20 @@ private val mediaHttpClient by lazy {
     )
 }
 
+private const val MAX_DM_MEDIA_BYTES = 25 * 1024 * 1024
+private const val MAX_DM_IMAGE_PIXELS = 16L * 1024 * 1024
+private const val MAX_DM_IMAGE_DIM = 16_384
+
+private fun decodeBitmapBounded(bytes: ByteArray): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    val w = bounds.outWidth
+    val h = bounds.outHeight
+    if (w <= 0 || h <= 0 || w > MAX_DM_IMAGE_DIM || h > MAX_DM_IMAGE_DIM) return null
+    if (w.toLong() * h.toLong() > MAX_DM_IMAGE_PIXELS) return null
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+}
+
 @Composable
 private fun EncryptedMediaContent(
     metadata: EncryptedMedia.EncryptedFileMetadata,
@@ -781,24 +797,43 @@ private fun EncryptedMediaContent(
     tintColor: androidx.compose.ui.graphics.Color
 ) {
     val isImage = metadata.mimeType.startsWith("image/")
+    val autoLoad = LocalMediaSettings.current.autoLoadMedia
 
     if (isImage) {
         var bitmap by remember(messageId) { mutableStateOf(decryptedBitmapCache.get(messageId)) }
-        var loading by remember(messageId) { mutableStateOf(bitmap == null) }
+        var userRequested by remember(messageId) { mutableStateOf(autoLoad) }
+        var loading by remember(messageId) { mutableStateOf(bitmap == null && userRequested) }
         var error by remember(messageId) { mutableStateOf<String?>(null) }
 
-        LaunchedEffect(messageId) {
-            if (bitmap != null) return@LaunchedEffect
+        LaunchedEffect(messageId, userRequested) {
+            if (bitmap != null || !userRequested) return@LaunchedEffect
             loading = true
+            error = null
             try {
                 val decrypted = withContext(Dispatchers.IO) {
-                    val request = Request.Builder().url(metadata.fileUrl).build()
-                    val response = mediaHttpClient.newCall(request).execute()
-                    if (!response.isSuccessful) throw Exception("HTTP ${response.code}")
-                    val encryptedBytes = response.body?.bytes() ?: throw Exception("Empty response")
-                    EncryptedMedia.decryptFile(encryptedBytes, metadata.keyHex, metadata.nonceHex)
+                    val response = SafeHttp.executeGuardedGet(mediaHttpClient, metadata.fileUrl)
+                        ?: throw Exception("Blocked or invalid media URL")
+                    val encryptedBytes = response.use { resp ->
+                        if (!resp.isSuccessful) throw Exception("HTTP ${resp.code}")
+                        SafeHttp.readBytesCapped(resp.body, MAX_DM_MEDIA_BYTES)
+                            ?: throw Exception("Media too large or empty")
+                    }
+                    if (metadata.encryptedHash.isNotBlank()) {
+                        val actualEnc = MessageDigest.getInstance("SHA-256").digest(encryptedBytes).toHex()
+                        if (!actualEnc.equals(metadata.encryptedHash, ignoreCase = true)) {
+                            throw Exception("Encrypted media hash mismatch")
+                        }
+                    }
+                    val plain = EncryptedMedia.decryptFile(encryptedBytes, metadata.keyHex, metadata.nonceHex)
+                    if (metadata.originalHash.isNotBlank()) {
+                        val actualOrig = MessageDigest.getInstance("SHA-256").digest(plain).toHex()
+                        if (!actualOrig.equals(metadata.originalHash, ignoreCase = true)) {
+                            throw Exception("Decrypted media hash mismatch")
+                        }
+                    }
+                    plain
                 }
-                val bmp = BitmapFactory.decodeByteArray(decrypted, 0, decrypted.size)
+                val bmp = decodeBitmapBounded(decrypted)
                 if (bmp != null) {
                     decryptedBitmapCache.put(messageId, bmp)
                     bitmap = bmp
@@ -813,6 +848,22 @@ private fun EncryptedMediaContent(
         }
 
         when {
+            !userRequested && bitmap == null -> {
+                Box(
+                    modifier = Modifier
+                        .size(200.dp, 80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(tintColor.copy(alpha = 0.1f))
+                        .clickable { userRequested = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Tap to load encrypted media",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = tintColor.copy(alpha = 0.8f)
+                    )
+                }
+            }
             loading -> {
                 Box(
                     modifier = Modifier
