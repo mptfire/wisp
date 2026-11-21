@@ -8,7 +8,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.net.URLEncoder
 import java.security.MessageDigest
 
@@ -23,52 +22,8 @@ object Nip57 {
     private val json = Json { ignoreUnknownKeys = true }
     private const val MAX_LNURL_BODY_BYTES = 262_144
 
-    /**
-     * LNURL discovery is an outbound fetch driven by a user profile field, so
-     * the host must be a public DNS name resolving to a public unicast
-     * address — this rejects localhost, link-local, private (RFC 1918 /
-     * ULA), and broadcast/multicast targets that a crafted lud16 could
-     * otherwise reach from the device's network. DNS rebinding between this
-     * check and the connection is out of scope for a client-side resolver
-     * (the HTTP client enforces https, which fails on most such targets'
-     * certificates).
-     */
-    private fun isAllowedLnurlHost(domain: String): Boolean {
-        val host = domain.trim().lowercase().removeSuffix(".")
-        if (host.isEmpty() || host == "localhost" || host.endsWith(".localhost") ||
-            host.endsWith(".local") || host.endsWith(".internal")
-        ) return false
-        val addresses = try {
-            java.net.InetAddress.getAllByName(host).toList()
-        } catch (_: Exception) {
-            return false
-        }
-        if (addresses.isEmpty()) return false
-        return addresses.all { addr ->
-            val a = addr.address
-            when (a.size) {
-                4 -> {
-                    val b0 = a[0].toInt() and 0xFF
-                    val b1 = a[1].toInt() and 0xFF
-                    !(b0 == 0 || b0 == 10 || b0 == 127 ||
-                        (b0 == 169 && b1 == 254) ||
-                        (b0 == 172 && b1 in 16..31) ||
-                        (b0 == 192 && b1 == 168) ||
-                        b0 >= 224)
-                }
-                16 -> {
-                    val b0 = a[0].toInt() and 0xFF
-                    val b1 = a[1].toInt() and 0xFF
-                    val isGlobalUnicast = (b0 and 0xE0) == 0x20
-                    val isUla = (b0 and 0xFE) == 0xFC
-                    !(b0 == 0 && b1 == 0) && !isUla && isGlobalUnicast ||
-                        // fallthrough-safe: treat non-global unicast as rejected
-                        (isGlobalUnicast && !isUla)
-                }
-                else -> false
-            }
-        }
-    }
+    private fun isAllowedLnurlHost(domain: String): Boolean =
+        SafeHttp.isAllowedPublicHost(domain)
 
     data class DecryptedPrivateZap(val senderPubkey: String, val message: String)
 
@@ -257,29 +212,31 @@ object Nip57 {
     suspend fun resolveLud16(lud16: String, httpClient: OkHttpClient): LnurlPayInfo? {
         return withContext(Dispatchers.IO) {
             try {
-                val parts = lud16.split("@", limit = 2)
+                val parts = lud16.trim().split("@", limit = 2)
                 if (parts.size != 2) return@withContext null
-                val (user, domain) = parts
-                if (!isAllowedLnurlHost(domain)) return@withContext null
-                val url = "https://$domain/.well-known/lnurlp/$user"
-                val request = Request.Builder().url(url).build()
-                val response = httpClient.newCall(request).execute()
-                if (!response.isSuccessful) return@withContext null
-                val contentLength = response.body?.contentLength()
-                if (contentLength != null && (contentLength <= 0 || contentLength > MAX_LNURL_BODY_BYTES)) {
-                    return@withContext null
+                val user = parts[0].trim()
+                val domain = parts[1].trim()
+                if (user.isEmpty() || !isAllowedLnurlHost(domain)) return@withContext null
+                val encodedUser = URLEncoder.encode(user, "UTF-8").replace("+", "%20")
+                val url = "https://$domain/.well-known/lnurlp/$encodedUser"
+                val response = SafeHttp.executeGuardedGet(httpClient, url) ?: return@withContext null
+                response.use { resp ->
+                    if (!resp.isSuccessful) return@withContext null
+                    val body = SafeHttp.readUtf8Capped(resp.body, MAX_LNURL_BODY_BYTES)
+                        ?: return@withContext null
+                    if (body.isEmpty()) return@withContext null
+                    val obj = json.parseToJsonElement(body).jsonObject
+                    val allowsNostr = obj["allowsNostr"]?.jsonPrimitive?.boolean ?: false
+                    val callback = obj["callback"]?.jsonPrimitive?.content ?: return@withContext null
+                    val safeCallback = SafeHttp.validateHttpsUrl(callback) ?: return@withContext null
+                    LnurlPayInfo(
+                        callback = safeCallback,
+                        minSendable = obj["minSendable"]?.jsonPrimitive?.long ?: 1000,
+                        maxSendable = obj["maxSendable"]?.jsonPrimitive?.long ?: 100_000_000_000,
+                        allowsNostr = allowsNostr,
+                        nostrPubkey = obj["nostrPubkey"]?.jsonPrimitive?.content
+                    )
                 }
-                val body = response.body?.string() ?: return@withContext null
-                if (body.length > MAX_LNURL_BODY_BYTES) return@withContext null
-                val obj = json.parseToJsonElement(body).jsonObject
-                val allowsNostr = obj["allowsNostr"]?.jsonPrimitive?.boolean ?: false
-                LnurlPayInfo(
-                    callback = obj["callback"]?.jsonPrimitive?.content ?: return@withContext null,
-                    minSendable = obj["minSendable"]?.jsonPrimitive?.long ?: 1000,
-                    maxSendable = obj["maxSendable"]?.jsonPrimitive?.long ?: 100_000_000_000,
-                    allowsNostr = allowsNostr,
-                    nostrPubkey = obj["nostrPubkey"]?.jsonPrimitive?.content
-                )
             } catch (_: Exception) {
                 null
             }
@@ -427,10 +384,11 @@ object Nip57 {
         val request = parseValidatedZapRequest(receipt, expectedAuthor, requireDescriptionHash) ?: return null
         val anon = request.tags.firstOrNull { it.size >= 2 && it[0] == ANON_TAG }?.get(1)
             ?: return null
+        val recipientHex = tagValue(request, "p") ?: return null
         val shared = runCatching {
             Nip04.computeSharedSecret(myPrivkey, request.pubkey.hexToByteArray())
         }.getOrNull() ?: return null
-        return decryptAnonTag(anon, shared)
+        return decryptAnonTag(anon, shared, recipientHex)
     }
 
     /**
@@ -459,10 +417,14 @@ object Nip57 {
         val shared = runCatching {
             Nip04.computeSharedSecret(ephPriv, recipientHex.hexToByteArray())
         }.getOrNull() ?: return null
-        return decryptAnonTag(anon, shared)
+        return decryptAnonTag(anon, shared, recipientHex)
     }
 
-    private fun decryptAnonTag(anon: String, sharedSecret: ByteArray): DecryptedPrivateZap? {
+    private fun decryptAnonTag(
+        anon: String,
+        sharedSecret: ByteArray,
+        expectedRecipientPubkey: String
+    ): DecryptedPrivateZap? {
         val parts = anon.split("_", limit = 2)
         if (parts.size != 2) return null
         val (hrpCt, ct) = runCatching { Nip19.bech32Decode(parts[0]) }.getOrNull() ?: return null
@@ -473,6 +435,8 @@ object Nip57 {
         val inner = runCatching { NostrEvent.fromJson(plaintext) }.getOrNull() ?: return null
         if (inner.kind != KIND_PRIVATE_ZAP_EVENT) return null
         if (!inner.verifySignature()) return null
+        val innerP = tagValue(inner, "p") ?: return null
+        if (!innerP.equals(expectedRecipientPubkey, ignoreCase = true)) return null
         return DecryptedPrivateZap(inner.pubkey, inner.content)
     }
 
@@ -500,24 +464,23 @@ object Nip57 {
 
     fun resolveLnurlZapSupport(lud16: String, httpClient: OkHttpClient): LnurlZapSupport {
         return try {
-            val parts = lud16.split("@", limit = 2)
+            val parts = lud16.trim().split("@", limit = 2)
             if (parts.size != 2) return LnurlZapSupport.NotSupported
-            val (user, domain) = parts
-            if (!isAllowedLnurlHost(domain)) return LnurlZapSupport.NotSupported
-            val request = Request.Builder()
-                .url("https://$domain/.well-known/lnurlp/$user")
-                .build()
-            // Bound the response: LNURL-pay documents are tiny JSON; a hostile
-            // endpoint streaming unbounded bytes pins the reader thread.
-            httpClient.newCall(request).execute().use { response ->
+            val user = parts[0].trim()
+            val domain = parts[1].trim()
+            if (user.isEmpty() || !isAllowedLnurlHost(domain)) return LnurlZapSupport.NotSupported
+            val encodedUser = URLEncoder.encode(user, "UTF-8").replace("+", "%20")
+            val url = "https://$domain/.well-known/lnurlp/$encodedUser"
+            // Bound the response via streaming cap (allowing chunked / HTTP/2
+            // responses where contentLength == -1L) and guard redirects per hop.
+            val resp = SafeHttp.executeGuardedGet(httpClient, url)
+                ?: return LnurlZapSupport.NotSupported
+            resp.use { response ->
                 if (response.code >= 500 || response.code == 429) return LnurlZapSupport.TransientError
                 if (!response.isSuccessful) return LnurlZapSupport.NotSupported
-                val contentLength = response.body?.contentLength()
-                if (contentLength != null && (contentLength <= 0 || contentLength > MAX_LNURL_BODY_BYTES)) {
-                    return LnurlZapSupport.NotSupported
-                }
-                val body = response.body?.string() ?: return LnurlZapSupport.TransientError
-                if (body.length > MAX_LNURL_BODY_BYTES) return LnurlZapSupport.NotSupported
+                val body = SafeHttp.readUtf8Capped(response.body, MAX_LNURL_BODY_BYTES)
+                    ?: return LnurlZapSupport.NotSupported
+                if (body.isEmpty()) return LnurlZapSupport.NotSupported
                 val obj = try {
                     json.parseToJsonElement(body).jsonObject
                 } catch (_: Exception) {
@@ -580,14 +543,17 @@ object Nip57 {
     ): String? {
         return withContext(Dispatchers.IO) {
             try {
-                val separator = if (callbackUrl.contains("?")) "&" else "?"
-                val url = "${callbackUrl}${separator}amount=$amountMsats"
-                val request = Request.Builder().url(url).build()
-                val response = httpClient.newCall(request).execute()
-                if (!response.isSuccessful) return@withContext null
-                val body = response.body?.string() ?: return@withContext null
-                val obj = json.parseToJsonElement(body).jsonObject
-                obj["pr"]?.jsonPrimitive?.content
+                val safeCallback = SafeHttp.validateHttpsUrl(callbackUrl) ?: return@withContext null
+                val separator = if (safeCallback.contains("?")) "&" else "?"
+                val url = "${safeCallback}${separator}amount=$amountMsats"
+                val response = SafeHttp.executeGuardedGet(httpClient, url) ?: return@withContext null
+                response.use { resp ->
+                    if (!resp.isSuccessful) return@withContext null
+                    val body = SafeHttp.readUtf8Capped(resp.body, MAX_LNURL_BODY_BYTES)
+                        ?: return@withContext null
+                    val obj = json.parseToJsonElement(body).jsonObject
+                    obj["pr"]?.jsonPrimitive?.content
+                }
             } catch (_: Exception) {
                 null
             }
@@ -602,16 +568,19 @@ object Nip57 {
     ): String? {
         return withContext(Dispatchers.IO) {
             try {
+                val safeCallback = SafeHttp.validateHttpsUrl(callbackUrl) ?: return@withContext null
                 val zapRequestJson = zapRequest.toJson()
                 val encoded = URLEncoder.encode(zapRequestJson, "UTF-8")
-                val separator = if (callbackUrl.contains("?")) "&" else "?"
-                val url = "${callbackUrl}${separator}amount=$amountMsats&nostr=$encoded"
-                val request = Request.Builder().url(url).build()
-                val response = httpClient.newCall(request).execute()
-                if (!response.isSuccessful) return@withContext null
-                val body = response.body?.string() ?: return@withContext null
-                val obj = json.parseToJsonElement(body).jsonObject
-                obj["pr"]?.jsonPrimitive?.content
+                val separator = if (safeCallback.contains("?")) "&" else "?"
+                val url = "${safeCallback}${separator}amount=$amountMsats&nostr=$encoded"
+                val response = SafeHttp.executeGuardedGet(httpClient, url) ?: return@withContext null
+                response.use { resp ->
+                    if (!resp.isSuccessful) return@withContext null
+                    val body = SafeHttp.readUtf8Capped(resp.body, MAX_LNURL_BODY_BYTES)
+                        ?: return@withContext null
+                    val obj = json.parseToJsonElement(body).jsonObject
+                    obj["pr"]?.jsonPrimitive?.content
+                }
             } catch (_: Exception) {
                 null
             }

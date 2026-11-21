@@ -25,6 +25,7 @@ object Bolt11 {
         if (pos < 1) return null
 
         val hrp = lower.substring(0, pos)
+        if (!hrp.startsWith("ln")) return null
         val dataStr = lower.substring(pos + 1)
         if (dataStr.length < 7 + 104) return null // timestamp(7) + signature(104) minimum
 
@@ -87,7 +88,8 @@ object Bolt11 {
                         descriptionHash = convert5to8(data5, offset, dataLength)?.toHex()
                     }
                 }
-                6 -> { // expiry: variable length integer
+                6 -> { // expiry: variable length integer (cap at 12x5 = 60 bits to prevent Long overflow)
+                    if (dataLength > 12) return null
                     var exp = 0L
                     for (i in 0 until dataLength) {
                         exp = (exp shl 5) or data5[offset + i].toLong()

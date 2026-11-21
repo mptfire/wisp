@@ -6,6 +6,7 @@ import com.wisp.app.nostr.Blossom
 import com.wisp.app.nostr.EncryptedMedia
 import com.wisp.app.nostr.NostrEvent
 import com.wisp.app.nostr.NostrSigner
+import com.wisp.app.nostr.SafeHttp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -114,13 +115,11 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
     }
 
     /**
-     * Returns the served URL only after the server's descriptor sha256 (when
-     * present) matches the uploaded bytes. A rogue server in the fallback list
-     * could otherwise return a URL pointing to different content, which would
-     * then be embedded in the user's signed post or DM. BUD-05 /media may
-     * transcode (strip EXIF), so the hash is only compared when the server
-     * reports one — a transcoding server reports the transcoded hash, which is
-     * accepted as that server's own content commitment.
+     * Returns the served HTTPS URL after verifying the server's descriptor.
+     * On `/upload` (verbatim storage), the descriptor MUST include a `sha256`
+     * matching [expectedSha256Hex] (fail-closed against omitted or tampered
+     * hashes). On `/media` (BUD-05 may transcode/strip EXIF), only HTTPS URL
+     * validation is enforced.
      */
     private fun uploadToServer(
         server: String,
@@ -139,30 +138,31 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
                 .header("Content-Type", mimeType)
                 .build()
 
-            val response = httpClient.newCall(request).execute()
-            if (response.isSuccessful) {
-                val responseBody = response.body?.string()
-                    ?: throw Exception("Empty response")
-                val root = json.parseToJsonElement(responseBody) as? kotlinx.serialization.json.JsonObject
-                    ?: throw Exception("Malformed upload response")
-                val urlField = root["url"]
-                    ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
-                    ?: throw Exception("No url in response")
-                // /upload stores bytes verbatim: the descriptor hash must equal
-                // the local hash. /media may transcode, so only /upload is
-                // strictly pinned to the uploaded bytes.
-                if (path == "/upload") {
-                    val serverSha256 = root["sha256"]
+            httpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val responseBody = SafeHttp.readUtf8Capped(response.body, SafeHttp.DEFAULT_MAX_JSON_BYTES)
+                        ?: throw Exception("Empty or oversized response")
+                    val root = json.parseToJsonElement(responseBody) as? kotlinx.serialization.json.JsonObject
+                        ?: throw Exception("Malformed upload response")
+                    val urlField = root["url"]
                         ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
-                        ?.lowercase()?.trim()
-                    if (serverSha256 != null && serverSha256 != expectedSha256Hex.lowercase()) {
-                        throw Exception("Blossom sha256 mismatch: server returned different content")
+                        ?: throw Exception("No url in response")
+                    if (!urlField.startsWith("https://", ignoreCase = true)) {
+                        throw Exception("Blossom returned non-HTTPS URL")
                     }
+                    if (path == "/upload") {
+                        val serverSha256 = root["sha256"]
+                            ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+                            ?.lowercase()?.trim()
+                        if (serverSha256.isNullOrBlank() || serverSha256 != expectedSha256Hex.lowercase()) {
+                            throw Exception("Blossom sha256 missing or mismatch")
+                        }
+                    }
+                    return urlField
                 }
-                return urlField
+                if (response.code == 404 && path == "/media") continue
+                throw Exception("Upload failed: ${response.code} ${response.message}")
             }
-            if (response.code == 404 && path == "/media") continue
-            throw Exception("Upload failed: ${response.code} ${response.message}")
         }
         throw Exception("Upload failed")
     }
@@ -239,26 +239,28 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
             .header("Content-Type", "application/octet-stream")
             .build()
 
-        val response = httpClient.newCall(request).execute()
-        if (response.isSuccessful) {
-            val responseBody = response.body?.string()
-                ?: throw Exception("Empty response")
-            val root = json.parseToJsonElement(responseBody) as? kotlinx.serialization.json.JsonObject
-                ?: throw Exception("Malformed upload response")
-            val urlField = root["url"]
-                ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
-                ?: throw Exception("No url in response")
-            // Encrypted blobs are stored verbatim; the descriptor must commit
-            // to the exact ciphertext we uploaded.
-            val serverSha256 = root["sha256"]
-                ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
-                ?.lowercase()?.trim()
-            if (serverSha256 != null && serverSha256 != expectedSha256Hex.lowercase()) {
-                throw Exception("Blossom sha256 mismatch: server returned different content")
+        httpClient.newCall(request).execute().use { response ->
+            if (response.isSuccessful) {
+                val responseBody = SafeHttp.readUtf8Capped(response.body, SafeHttp.DEFAULT_MAX_JSON_BYTES)
+                    ?: throw Exception("Empty or oversized response")
+                val root = json.parseToJsonElement(responseBody) as? kotlinx.serialization.json.JsonObject
+                    ?: throw Exception("Malformed upload response")
+                val urlField = root["url"]
+                    ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+                    ?: throw Exception("No url in response")
+                if (!urlField.startsWith("https://", ignoreCase = true)) {
+                    throw Exception("Blossom returned non-HTTPS URL")
+                }
+                val serverSha256 = root["sha256"]
+                    ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+                    ?.lowercase()?.trim()
+                if (serverSha256.isNullOrBlank() || serverSha256 != expectedSha256Hex.lowercase()) {
+                    throw Exception("Blossom sha256 missing or mismatch")
+                }
+                return urlField
             }
-            return urlField
+            throw Exception("Upload failed: ${response.code} ${response.message}")
         }
-        throw Exception("Upload failed: ${response.code} ${response.message}")
     }
 
     companion object {
