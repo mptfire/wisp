@@ -116,7 +116,7 @@ private fun WatchOnlyInfoStep(onContinue: () -> Unit) {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "You're signed in with a public key. You can read posts, follow accounts, and browse the network — but posting, reacting, and zapping require a private key.",
+                text = "You can read posts and browse the network — posting, following, reacting, and zapping require a signing key.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
