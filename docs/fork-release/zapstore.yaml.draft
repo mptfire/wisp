@@ -24,7 +24,7 @@ general:
 
 platforms:
   android:
-    package: com.wisp.app
+    package: de.rtard.wisp
     min-api: 26
 
 versions:

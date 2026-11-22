@@ -1,0 +1,49 @@
+# Wisp fork static hosting — production + staging webroots.
+# Copy to /etc/caddy/ and adapt. Caddy provisions TLS automatically
+# (Let's Encrypt) for both hostnames.
+#
+# DNS first (A/AAAA -> VPS, DNS-only/grey cloud if Cloudflare fronts DNS):
+#   wisp.rtard.de         prod download site   /srv/wisp.rtard.de
+#   staging.wisp.rtard.de staging mirror      /srv/staging.wisp.rtard.de
+#   app.wisp.rtard.de     RESERVED for Track B (web client / PWA origin)
+
+(wisp_static) {
+	file_server
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
+	}
+
+	@apk path *.apk
+	header @apk {
+		Content-Type "application/vnd.android.package-archive"
+		Content-Disposition "attachment"
+		Cache-Control "public, max-age=31536000, immutable"
+	}
+
+	@meta path / /index.html /SHA256SUMS /release.json /release-notes.md
+	header @meta Cache-Control "no-cache"
+}
+
+wisp.rtard.de {
+	root * /srv/wisp.rtard.de
+	import wisp_static
+}
+
+staging.wisp.rtard.de {
+	root * /srv/staging.wisp.rtard.de
+	header X-Robots-Tag "noindex, nofollow"
+	# Optional while BREEZ_API_KEY / OAuth are pending:
+	# basic_auth {
+	# 	tester <caddy hash-password output>
+	# }
+	import wisp_static
+}
+
+# nginx equivalent: same root, add_header (always) for the four headers
+# above per server block, X-Robots-Tag only on staging, and
+# location ~* \.apk$ { default_type application/vnd.android.package-archive;
+# add_header Content-Disposition "attachment" always; }

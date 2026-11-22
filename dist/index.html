@@ -49,7 +49,7 @@
     <p style="color:#98a2b3">arm64-v8a · Android 8.0+ · ~104 MB</p>
     <dl>
       <dt>SHA-256 of the APK</dt>
-      <dd class="mono" id="sha256">see SHA256SUMS in the release (filled by dist/publish.sh)</dd>
+      <dd class="mono" id="sha256">078c37f28705f2669b248c7a80e39e9c603b9ad6477e08264ce4a3fe9b0e2a6a</dd>
       <dt>Signing certificate SHA-256 (verify before installing)</dt>
       <dd class="mono">3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a</dd>
       <dt>Checksums</dt>
@@ -60,12 +60,11 @@
   <div class="card warn">
     <h2>Before you install</h2>
     <ul>
-      <li>This fork is signed with its own key, so Android will <strong>not</strong>
-        install it over the upstream Wisp build (same app ID,
-        <span class="mono">com.wisp.app</span> — you get
-        <span class="mono">INSTALL_FAILED_UPDATE_INCOMPATIBLE</span>). To switch:
-        back up your recovery phrase / nsec first, uninstall upstream Wisp
-        (this wipes local keys and wallet data), then install this APK.</li>
+      <li>Installs side-by-side with upstream Wisp: this fork uses its own
+        package ID (<span class="mono">de.rtard.wisp</span>, launcher name
+        "Wisp Fork"), so both can stay installed. Restore and verify your
+        recovery phrase / nsec inside Wisp Fork before uninstalling the
+        upstream app.</li>
       <li>Verify the APK checksum against <span class="mono">SHA256SUMS</span>,
         or check the signing certificate fingerprint above in your installer.</li>
       <li>This is an independent fork build. It is not published or endorsed by

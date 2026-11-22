@@ -38,28 +38,55 @@
   authorizes by (packageName, signing cert SHA-1); the fork cert
   (SHA-1 e617021fbcba18ce620d2e9aa096b796cdefc4c8) is not registered
   there, so Google Sign-In and Drive backup fail on real devices.
-- Options: (a) create fork GCP OAuth Web+Android clients for the fork
-  (applicationId + SHA-1) and make `google_web_client_id`
-  build-configurable; or (b) document Drive backup / Google sign-in as
-  unsupported in the fork. Decide before launch.
+- Options: (a) create fork GCP OAuth Web+Android clients bound to
+  (`de.rtard.wisp`, cert SHA-1 e617021fbcba18ce620d2e9aa096b796cdefc4c8)
+  and make `google_web_client_id` build-configurable; or (b) document
+  Drive backup / Google sign-in as unsupported in the fork. Decide
+  before launch.
 
-## 4. Same application ID caveat — PRODUCT DECISION OPEN
-- The fork is signed with its own key. Android will NOT install it over
-  the upstream build (`com.wisp.app`, different cert) — the installer
-  fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE. Switching requires:
-  back up recovery phrase/nsec, uninstall upstream Wisp (wipes local
-  keys and wallet data), install the fork APK.
-- OPEN DECISION: keep `com.wisp.app` (users must uninstall upstream
-  first; Zapstore collides with upstream listing) or switch to a
-  distinct `com.wisp.app.fork` + app_name "Wisp Fork" for side-by-side
-  install. The download page and release notes state the uninstall-first
-  path until this is decided.
+## 4. Package identity — DECIDED: `de.rtard.wisp` + "Wisp Fork"
+- applicationId `de.rtard.wisp` (root `build.gradle.kts`
+  `baseApplicationId`), launcher label "Wisp Fork"; `namespace` stays
+  `com.wisp.app` so no Kotlin imports change (verified: zero hardcoded
+  "com.wisp.app" strings in `app/src/` — FileProvider, CrashHandler and
+  friends all use `context.packageName`).
+- Installs side-by-side with upstream Wisp (`com.wisp.app`): users can
+  restore and verify their recovery phrase in Wisp Fork before
+  uninstalling upstream. No Zapstore/Play collision with upstream.
+- Release notes and the download page state the side-by-side path.
 
 ## 5. Distribution hosting — DECISION
+- Direct Caddy/nginx + Let's Encrypt on the VPS (no Cloudflare SSL
+  limits; 2nd-level subdomains work out of the box). Webroots, NOT
+  /download/: `/srv/wisp.rtard.de/` (prod), `/srv/staging.wisp.rtard.de/`
+  (staging mirror, X-Robots-Tag noindex/nofollow, optional basic auth
+  while BREEZ_API_KEY/OAuth are pending). `app.wisp.rtard.de` is
+  reserved for Track B (separate origin for web-app CSP/SW/storage).
+  See `docs/fork-release/Caddyfile.example`.
 - `dist/index.html` uses relative links (`./wisp-<version>.apk`,
   `./SHA256SUMS`); `dist/publish.sh` assembles a complete staging/
-  bundle (page + metadata + notes + APK + checksums) from the canonical
-  GitHub Release asset for rsync to the static host.
+  bundle (page + metadata + notes + APK + checksums) and prints both
+  rsync targets.
+- Staging-first rollout:
+  1. Build: trigger `fork-release` via workflow_dispatch with an empty
+     tag (artifact-only) or `--from-apk` a local signed build.
+  2. Deploy: `./dist/publish.sh --from-run <run-id>` (or `--from-apk
+     <path>`) then `rsync -av --delete dist/staging/ user@vps:/srv/staging.wisp.rtard.de/`.
+  3. Live verify:
+     ```
+     TMP=$(mktemp -d) && cd "$TMP"
+     curl -fsSLI https://staging.wisp.rtard.de/wisp-1.3.0-fork.1.apk \
+       | grep -iE "content-type|content-disposition|strict-transport"
+     curl -fsSLO https://staging.wisp.rtard.de/wisp-1.3.0-fork.1.apk
+     curl -fsSLO https://staging.wisp.rtard.de/SHA256SUMS
+     sha256sum -c SHA256SUMS
+     ```
+     On device/emulator: clean launch, NIP-17 DM round-trip, BIP-39
+     restore validation, LNURL zap (once the API key lands), and the
+     side-by-side install next to upstream Wisp.
+  4. Promote: lock the remaining decisions, push tag `v1.3.0-fork.1`
+     (CI publishes the canonical Release), then `./dist/publish.sh` and
+     `rsync -av --delete dist/staging/ user@vps:/srv/wisp.rtard.de/`.
   Whoever controls wisp.rtard.de DNS/hosting must confirm before the
   links go live; otherwise point the links at the GitHub release URL.
 
@@ -74,7 +101,8 @@
 ## 7. Pre-launch verification (local, already done once)
 - `apksigner verify --print-certs` → CN=Wisp Fork Release, cert SHA-256
   `3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a`.
-- versionCode 92, versionName 1.3.0-fork.1, applicationId com.wisp.app.
+- versionCode 92, versionName 1.3.0-fork.1, applicationId
+  `de.rtard.wisp`, application-label "Wisp Fork".
 - `dist/release.json` `sha256` is null until `dist/publish.sh` fills it
   from the canonical CI release artifact (the cert SHA-256 pin is the
   durable trust anchor and stays hardcoded).

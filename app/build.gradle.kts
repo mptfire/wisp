@@ -58,7 +58,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = 92
         versionName = "1.3.0-fork.1"
-        resValue("string", "app_name", "Wisp")
+        resValue("string", "app_name", "Wisp Fork")
 
         ndk {
             abiFilters += "arm64-v8a"
@@ -108,7 +108,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = debugApplicationIdSuffix
-            resValue("string", "app_name", "Wisp Debug")
+            resValue("string", "app_name", "Wisp Fork Debug")
         }
 
         release {
@@ -129,7 +129,7 @@ android {
             // it without the release keystore. Installs alongside debug/release.
             initWith(getByName("release"))
             applicationIdSuffix = ".staging"
-            resValue("string", "app_name", "Wisp Staging")
+            resValue("string", "app_name", "Wisp Fork Staging")
             signingConfig = signingConfigs.getByName("debug")
         }
     }
