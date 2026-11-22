@@ -86,7 +86,6 @@ fun SplashScreen(
     authViewModel: AuthViewModel,
     onAccountCreated: () -> Unit,
     onLoggedIn: () -> Unit,
-    onContinueWithGoogle: () -> Unit,
     onCancel: (() -> Unit)? = null,
     // Adding an account opens sign-in straight away rather than making the
     // user tap through the intro, which is first-run framing. Dismissing the
@@ -233,37 +232,6 @@ fun SplashScreen(
             liveMetrics?.let { OnlineCard(it) }
 
             Spacer(Modifier.height(32.dp))
-
-            Button(
-                onClick = onContinueWithGoogle,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF131314),
-                    contentColor = Color(0xFFE3E3E3)
-                ),
-                border = BorderStroke(1.dp, Color(0xFF8E918F))
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_google_g),
-                    contentDescription = null,
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = stringResource(R.string.splash_continue_with_google),
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 15.sp
-                    )
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
 
             Button(
                 onClick = { showNostrSheet = true },

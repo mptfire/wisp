@@ -32,17 +32,16 @@
   (b) publish without wallet support and say so in the notes; (c) defer
   the release until (a). Recommend (a).
 
-## 3b. BLOCKER — Google Sign-In / Drive backup broken under the fork key
-- `app/src/main/res/values/strings.xml` hardcodes upstream's
-  `google_web_client_id` (GCP project 410412439051-...). Play Services
-  authorizes by (packageName, signing cert SHA-1); the fork cert
-  (SHA-1 e617021fbcba18ce620d2e9aa096b796cdefc4c8) is not registered
-  there, so Google Sign-In and Drive backup fail on real devices.
-- Options: (a) create fork GCP OAuth Web+Android clients bound to
-  (`de.rtard.wisp`, cert SHA-1 e617021fbcba18ce620d2e9aa096b796cdefc4c8)
-  and make `google_web_client_id` build-configurable; or (b) document
-  Drive backup / Google sign-in as unsupported in the fork. Decide
-  before launch.
+## 3b. RESOLVED — Google Sign-In / Drive backup removed
+- Removed the Google Sign-In button, `GoogleAuthScreen`,
+  `GoogleAuthViewModel`, `GoogleSignInManager`, `DriveBackupService`,
+  `BackupCrypto`, `ic_google_g.xml`, `google_web_client_id`, and the
+  `googleid`, `play-services-auth`, and
+  `credentials-play-services-auth` Gradle dependencies.
+- Wisp Fork is Nostr-only sign-in (with pure AndroidX
+  `androidx.credentials` retained for OS password-manager autofill via
+  `NostrCredentialSaver`, zero Google auth SDKs). No GCP OAuth setup is
+  needed.
 
 ## 4. Package identity — DECIDED: `de.rtard.wisp` + "Wisp Fork"
 - applicationId `de.rtard.wisp` (root `build.gradle.kts`

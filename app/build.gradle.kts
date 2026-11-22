@@ -229,7 +229,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.objectbox.android)
     implementation(libs.objectbox.kotlin)
-    implementation(libs.breez.sdk.spark)
+    implementation(libs.breez.sdk.spark) {
+        // Wisp only uses Seed.Mnemonic; strip Breez's optional Passkey/Google auth transitives.
+        exclude(group = "androidx.credentials", module = "credentials-play-services-auth")
+        exclude(group = "com.google.android.gms", module = "play-services-auth")
+        exclude(group = "com.google.android.libraries.identity.googleid", module = "googleid")
+    }
     implementation(libs.mlkit.barcode)
     implementation(libs.camerax.core)
     implementation(libs.camerax.camera2)
@@ -237,7 +242,4 @@ dependencies {
     implementation(libs.camerax.view)
     implementation(libs.camerax.mlkit)
     implementation(libs.androidx.credentials)
-    implementation(libs.androidx.credentials.play.services.auth)
-    implementation(libs.googleid)
-    implementation(libs.play.services.auth)
 }

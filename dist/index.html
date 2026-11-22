@@ -75,18 +75,21 @@
   <div class="card">
     <h2>What changed in this fork</h2>
     <ul>
-      <li>DM seal authentication and rumor-author binding (NIP-17)</li>
-      <li>Fail-closed BIP-39 mnemonic validation with Unicode-space normalization</li>
-      <li>All previously merged security hardening: LNURL zap-request binding,
-        receipt consistency checks, SSRF guards, bech32 checksum verification</li>
-      <li>LNURL responses on chunked/HTTP-2 transports read correctly
-        (zaps to Cloudflare-fronted providers were broken)</li>
-      <li>DM media auto-fetch gated behind a setting — no zero-click
-        IP leak; size caps and SHA-256 verification on media</li>
-      <li>Crash logs redact secrets before writing</li>
+      <li><strong>No Google sign-in:</strong> Removed "Continue with Google" and
+        Google Drive backup — sign in directly with your Nostr key.</li>
+      <li><strong>Stronger private messages:</strong> Blocks spoofed DMs and stops
+        automatic media downloads in DMs so strangers can't see your IP address.</li>
+      <li><strong>Reliable, safer zaps:</strong> Fixed zaps failing with popular
+        Lightning providers and verifies invoices before your wallet pays them.</li>
+      <li><strong>Safer wallet recovery:</strong> Catches typos and weird copy-paste
+        spaces in recovery phrases instead of letting invalid ones slip through.</li>
+      <li><strong>Private crash reports:</strong> Strips keys and wallet secrets
+        from crash logs automatically.</li>
     </ul>
-    <p style="color:#98a2b3">Source: <a class="mono" href="https://github.com/mptfire/wisp">github.com/mptfire/wisp</a>,
-    release branch <span class="mono">release/v1.3.0-fork.1</span>.
+    <p style="color:#98a2b3">Technical details:
+    <a class="mono" href="./release-notes.md">release-notes.md</a> ·
+    Source: <a class="mono" href="https://github.com/mptfire/wisp">github.com/mptfire/wisp</a>
+    (<span class="mono">release/v1.3.0-fork.1</span>).
     No analytics, no trackers, nothing phoned home by this page.</p>
   </div>
 

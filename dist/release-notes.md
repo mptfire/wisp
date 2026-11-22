@@ -3,6 +3,9 @@
 Security-focused fork release of Wisp, based on upstream `main` at
 `09e26e0e` plus two open upstream PRs landed here:
 
+- **Google Sign-In & Drive backup removed**: stripped Google OAuth,
+  Google Drive backup, `googleid`, and `play-services-auth` SDKs —
+  Wisp Fork is Nostr-only sign-in.
 - **DM seal authentication** (upstream #675): NIP-17 rumor authors
   (kinds 14, 15, 7, 1) are authenticated against the kind-13 seal's
   signature and bound to the seal's pubkey before a message is trusted.

@@ -63,10 +63,6 @@
 -keep class com.sun.jna.** { *; }
 -dontwarn com.sun.jna.**
 
-# Credential Manager + Google Identity
+# Credential Manager (OS password-manager autofill via NostrCredentialSaver)
 -keep class androidx.credentials.** { *; }
 -dontwarn androidx.credentials.**
--keep class com.google.android.libraries.identity.googleid.** { *; }
--dontwarn com.google.android.libraries.identity.googleid.**
--keep class com.google.android.gms.auth.** { *; }
--dontwarn com.google.android.gms.auth.**
