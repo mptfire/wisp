@@ -1,6 +1,6 @@
 package com.wisp.app.nostr
 
-import android.util.Base64
+import java.util.Base64
 import org.bouncycastle.crypto.engines.ChaCha7539Engine
 import org.bouncycastle.crypto.params.KeyParameter
 import org.bouncycastle.crypto.params.ParametersWithIV
@@ -52,7 +52,7 @@ object Nip44 {
 
         // Assemble payload: version || nonce || ciphertext || hmac
         val payload = byteArrayOf(VERSION) + nonce + ciphertext + mac
-        return Base64.encodeToString(payload, Base64.NO_WRAP)
+        return Base64.getEncoder().encodeToString(payload)
     }
 
     /**
@@ -60,7 +60,7 @@ object Nip44 {
      * Input: base64-encoded payload.
      */
     fun decrypt(payload: String, conversationKey: ByteArray): String {
-        val data = Base64.decode(payload, Base64.DEFAULT)
+        val data = Base64.getMimeDecoder().decode(payload)
         require(data.size >= 99) { "Payload too short" } // 1 + 32 + 32(min padded) + 2(len prefix) + 32
 
         val version = data[0]

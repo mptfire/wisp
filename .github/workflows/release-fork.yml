@@ -1,23 +1,32 @@
 name: fork-release
 
-# Builds the signed fork APK and attaches it to a GitHub Release together
-# with its SHA256SUMS. Runs only on explicit fork release tags
-# (v*fork*) or manual dispatch — never on upstream PRs.
+# Builds the fork APK, runs the unit-test gate, signs it, and attaches it
+# to a GitHub Release with SHA256SUMS. Releases publish strictly on
+# v*fork* tags; workflow_dispatch builds artifact-only unless a tag input
+# is supplied.
 #
 # Required repository secrets:
-#   WISP_FORK_KEYSTORE_BASE64      — base64 of the fork release keystore (.jks)
-#   WISP_FORK_KEYSTORE_PASSWORD    — keystore password
-#   WISP_FORK_KEY_ALIAS            — key alias (wisp-fork)
-#   WISP_FORK_KEY_PASSWORD         — key password (equals the keystore password for PKCS12)
+#   WISP_FORK_KEYSTORE_BASE64    - base64 of the fork release keystore (.jks)
+#   WISP_FORK_KEYSTORE_PASSWORD  - keystore password (PKCS12 key password)
+#   WISP_FORK_KEY_ALIAS          - key alias (wisp-fork)
+#   BREEZ_API_KEY                - Spark/Lightning API key (build fails without it)
 
 on:
   push:
     tags:
       - 'v*fork*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to publish (e.g. v1.3.0-fork.1). Leave empty to build artifacts only.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
+
+env:
+  OBX_DISABLE_ANALYTICS: 'true'
 
 jobs:
   release:
@@ -32,6 +41,19 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Check required secrets
+        env:
+          WISP_FORK_KEYSTORE_BASE64: ${{ secrets.WISP_FORK_KEYSTORE_BASE64 }}
+          WISP_FORK_KEYSTORE_PASSWORD: ${{ secrets.WISP_FORK_KEYSTORE_PASSWORD }}
+          WISP_FORK_KEY_ALIAS: ${{ secrets.WISP_FORK_KEY_ALIAS }}
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
+        run: |
+          missing=0
+          for v in WISP_FORK_KEYSTORE_BASE64 WISP_FORK_KEYSTORE_PASSWORD WISP_FORK_KEY_ALIAS BREEZ_API_KEY; do
+            if [ -z "${!v}" ]; then echo "secret $v is empty" >&2; missing=1; fi
+          done
+          exit $missing
+
       - name: Decode keystore
         run: |
           echo "$WISP_FORK_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/wisp-fork-release.jks"
@@ -39,32 +61,62 @@ jobs:
         env:
           WISP_FORK_KEYSTORE_BASE64: ${{ secrets.WISP_FORK_KEYSTORE_BASE64 }}
 
+      - name: Unit test gate
+        env:
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
+        run: ./gradlew --no-daemon testDebugUnitTest
+
       - name: Build signed release APK
         env:
           WISP_FORK_KEYSTORE_PASSWORD: ${{ secrets.WISP_FORK_KEYSTORE_PASSWORD }}
           WISP_FORK_KEY_ALIAS: ${{ secrets.WISP_FORK_KEY_ALIAS }}
-          WISP_FORK_KEY_PASSWORD: ${{ secrets.WISP_FORK_KEY_PASSWORD }}
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
         run: ./gradlew --no-daemon assembleRelease
 
-      - name: Verify signature and checksum
+      - name: Verify signature, pin certificate, stage release files
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
           test -f "$APK"
-          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort | tail -1)"
-          "$APKSIGNER" verify --print-certs "$APK" | grep -q "CN=Wisp Fork Release" \
-            || { echo "unexpected signer" >&2; exit 1; }
-          sha256sum "$APK" > SHA256SUMS
-          cat SHA256SUMS
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs "$APK" > certs.txt
+          EXPECTED=3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a
+          grep -q "certificate SHA-256 digest: $EXPECTED" certs.txt \
+            || { echo "unexpected signing certificate" >&2; exit 1; }
+          VERSION="$(python3 -c 'import json; print(json.load(open("app/build/outputs/apk/release/output-metadata.json"))["versionName"])')"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match built version v${VERSION}" >&2; exit 1
+          fi
+          mkdir staging
+          cp "$APK" "staging/wisp-${VERSION}.apk"
+          ( cd staging && sha256sum "wisp-${VERSION}.apk" > SHA256SUMS && sha256sum -c SHA256SUMS )
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          cp certs.txt staging/certs.txt
 
-      - name: Extract version
-        id: version
-        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publish GitHub Release
+        if: steps.tag.outputs.name != ''
         uses: softprops/action-gh-release@v2
         with:
-          name: Wisp fork ${{ steps.version.outputs.tag }}
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: Wisp fork ${{ steps.tag.outputs.name }}
           body_path: dist/release-notes.md
           files: |
-            app/build/outputs/apk/release/app-release.apk
-            SHA256SUMS
+            staging/wisp-*-fork*.apk
+            staging/SHA256SUMS
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fork-release-files
+          path: |
+            staging/*

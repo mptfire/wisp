@@ -1,6 +1,6 @@
 package com.wisp.app.nostr
 
-import android.util.Base64
+import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -25,8 +25,8 @@ object Nip04 {
      */
     fun encrypt(plaintext: String, sharedSecret: ByteArray): String {
         val (ciphertext, iv) = encryptRaw(plaintext, sharedSecret)
-        val ctB64 = Base64.encodeToString(ciphertext, Base64.NO_WRAP)
-        val ivB64 = Base64.encodeToString(iv, Base64.NO_WRAP)
+        val ctB64 = Base64.getEncoder().encodeToString(ciphertext)
+        val ivB64 = Base64.getEncoder().encodeToString(iv)
         return "$ctB64?iv=$ivB64"
     }
 
@@ -36,8 +36,8 @@ object Nip04 {
     fun decrypt(content: String, sharedSecret: ByteArray): String {
         val parts = content.split("?iv=")
         require(parts.size == 2) { "Invalid NIP-04 content format" }
-        val ciphertext = Base64.decode(parts[0], Base64.DEFAULT)
-        val iv = Base64.decode(parts[1], Base64.DEFAULT)
+        val ciphertext = Base64.getMimeDecoder().decode(parts[0])
+        val iv = Base64.getMimeDecoder().decode(parts[1])
         return decryptRaw(ciphertext, iv, sharedSecret)
     }
 

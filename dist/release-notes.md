@@ -3,9 +3,9 @@
 Security-focused fork release of Wisp, based on upstream `main` at
 `09e26e0e` plus two open upstream PRs landed here:
 
-- **DM seal authentication** (upstream #675): kind-17 rumor authors are
-  authenticated against the seal's signature and bound to the wrapping
-  event author before a message is trusted.
+- **DM seal authentication** (upstream #675): NIP-17 rumor authors
+  (kinds 14, 15, 7, 1) are authenticated against the kind-13 seal's
+  signature and bound to the seal's pubkey before a message is trusted.
 - **Fail-closed BIP-39 validation** (upstream #690): recovery-phrase
   checks now validate wordlist membership and checksum, normalize the
   Unicode spaces PDFs and note apps insert, and fail closed if the
@@ -15,8 +15,9 @@ Security-focused fork release of Wisp, based on upstream `main` at
   bech32 checksum validation on BOLT-11 invoices.
 
 ### Notes
-- Same application ID as upstream (`com.wisp.app`): installing replaces
-  an existing upstream build. Back up your recovery phrase first.
+- Signed with the fork's own key: Android will not install it over the
+  upstream build (INSTALL_FAILED_UPDATE_INCOMPATIBLE). Back up your
+  recovery phrase, uninstall upstream Wisp first, then install this.
 - arm64-v8a only, Android 8.0+.
 - Verify the APK against `SHA256SUMS`; signing certificate SHA-256:
   `3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a`.

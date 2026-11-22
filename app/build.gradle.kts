@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -29,12 +30,27 @@ android {
         }
 
         val localProps = rootProject.file("local.properties")
-        val breezApiKey = if (localProps.exists()) {
-            val props = Properties()
-            localProps.inputStream().use { props.load(it) }
-            props.getProperty("breez.api.key", "")
-        } else ""
-        buildConfigField("String", "BREEZ_API_KEY", "\"$breezApiKey\"")
+        val breezApiKey = System.getenv("BREEZ_API_KEY")?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: if (localProps.exists()) {
+                val props = Properties()
+                localProps.inputStream().use { props.load(it) }
+                props.getProperty("breez.api.key", "")?.trim() ?: ""
+            } else ""
+        val allowEmptyBreezKey =
+            providers.gradleProperty("allowEmptyBreezApiKey").getOrElse("false") == "true"
+        if (breezApiKey.isEmpty() && !allowEmptyBreezKey) {
+            throw GradleException(
+                "BREEZ_API_KEY is empty - the Lightning wallet would ship non-functional. " +
+                    "Set env BREEZ_API_KEY or breez.api.key in local.properties, or pass " +
+                    "-PallowEmptyBreezApiKey=true to build knowingly without a wallet."
+            )
+        }
+        // Escape for the generated BuildConfig string literal.
+        val breezApiKeyLiteral = breezApiKey
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+        buildConfigField("String", "BREEZ_API_KEY", "\"$breezApiKeyLiteral\"")
         buildConfigField("String", "BREEZ_SDK_VERSION", "\"${libs.versions.breez.sdk.spark.get()}\"")
     }
 
@@ -44,15 +60,29 @@ android {
         // signing.env locally, GitHub secrets in CI). When they are absent,
         // assembleRelease still succeeds and produces an unsigned APK.
         create("forkRelease") {
-            val ksPath = System.getenv("WISP_FORK_KEYSTORE")
-            val ksPass = System.getenv("WISP_FORK_KEYSTORE_PASSWORD")
-            val keyAliasName = System.getenv("WISP_FORK_KEY_ALIAS")
-            val keyPass = System.getenv("WISP_FORK_KEY_PASSWORD")
-            if (ksPath != null && ksPass != null && keyAliasName != null && keyPass != null) {
-                storeFile = file(ksPath)
-                storePassword = ksPass
-                this.keyAlias = keyAliasName
-                this.keyPassword = keyPass
+            val ksPath = System.getenv("WISP_FORK_KEYSTORE")?.trim()
+            val ksPass = System.getenv("WISP_FORK_KEYSTORE_PASSWORD")?.trim()
+            val keyAliasName = System.getenv("WISP_FORK_KEY_ALIAS")?.trim()
+            // PKCS12 encrypts keys with the store password; default to it.
+            val keyPass = System.getenv("WISP_FORK_KEY_PASSWORD")?.trim() ?: ksPass
+            val provided = listOf(ksPath, ksPass, keyAliasName, keyPass)
+                .count { !it.isNullOrBlank() }
+            when (provided) {
+                0 -> {
+                    // No signing env at all: assembleRelease stays unsigned.
+                }
+                4 -> {
+                    storeFile = file(ksPath!!)
+                    storePassword = ksPass
+                    this.keyAlias = keyAliasName
+                    this.keyPassword = keyPass
+                    enableV3Signing = true
+                }
+                else -> throw GradleException(
+                    "Partial fork signing configuration: set ALL of WISP_FORK_KEYSTORE, " +
+                        "WISP_FORK_KEYSTORE_PASSWORD, WISP_FORK_KEY_ALIAS (WISP_FORK_KEY_PASSWORD " +
+                        "defaults to the keystore password for PKCS12)."
+                )
             }
         }
     }

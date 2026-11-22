@@ -19,6 +19,7 @@
   gh secret set WISP_FORK_KEYSTORE_PASSWORD <<< "$WISP_FORK_KEYSTORE_PASSWORD"
   gh secret set WISP_FORK_KEY_ALIAS <<< "$WISP_FORK_KEY_ALIAS"
   gh secret set WISP_FORK_KEY_PASSWORD <<< "$WISP_FORK_KEY_PASSWORD"
+  gh secret set BREEZ_API_KEY <<< "<spark api key>"
   ```
 - Release: push tag `v1.3.0-fork.1` (must contain "fork" to match the
   trigger), or run the workflow manually.
@@ -32,11 +33,28 @@
   (b) publish without wallet support and say so in the notes; (c) defer
   the release until (a). Recommend (a).
 
-## 4. Same application ID caveat
-- `com.wisp.app`, versionCode 92: installing over the upstream build
-  replaces it (data preserved) but cannot be undone without uninstalling.
-  Backup the recovery phrase before switching. This is also stated on
-  the download page.
+## 3b. BLOCKER — Google Sign-In / Drive backup broken under the fork key
+- `app/src/main/res/values/strings.xml` hardcodes upstream's
+  `google_web_client_id` (GCP project 410412439051-...). Play Services
+  authorizes by (packageName, signing cert SHA-1); the fork cert
+  (SHA-1 e617021fbcba18ce620d2e9aa096b796cdefc4c8) is not registered
+  there, so Google Sign-In and Drive backup fail on real devices.
+- Options: (a) create fork GCP OAuth Web+Android clients for the fork
+  (applicationId + SHA-1) and make `google_web_client_id`
+  build-configurable; or (b) document Drive backup / Google sign-in as
+  unsupported in the fork. Decide before launch.
+
+## 4. Same application ID caveat — PRODUCT DECISION OPEN
+- The fork is signed with its own key. Android will NOT install it over
+  the upstream build (`com.wisp.app`, different cert) — the installer
+  fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE. Switching requires:
+  back up recovery phrase/nsec, uninstall upstream Wisp (wipes local
+  keys and wallet data), install the fork APK.
+- OPEN DECISION: keep `com.wisp.app` (users must uninstall upstream
+  first; Zapstore collides with upstream listing) or switch to a
+  distinct `com.wisp.app.fork` + app_name "Wisp Fork" for side-by-side
+  install. The download page and release notes state the uninstall-first
+  path until this is decided.
 
 ## 5. Distribution hosting — DECISION
 - `dist/index.html` links to `https://wisp.rtard.de/download/…`; the
@@ -70,9 +88,11 @@
   source.
 
 ## 9. Reproducibility
-- Builds pinned to Temurin JDK 17 (CI) — local `~/.gradle/gradle.properties`
-  pins `org.gradle.java.home` to Temurin 17 because Fedora's Java 25
-  (25.0.4.1) breaks the Kotlin compiler's version parser.
+- Builds pinned to Temurin JDK 17 (CI via setup-java). Locally, invoke
+  gradle with `JAVA_HOME=~/jdks/jdk-17.0.21.1+2` — Fedora's system Java
+  25 (25.0.4.1) breaks the Kotlin compiler's version parser. Do NOT pin
+  `org.gradle.java.home` globally in `~/.gradle/gradle.properties`; it
+  would force JDK 17 on every Gradle project on the machine.
 - R8 output is not bit-identical across environments: verify the
   **signing certificate**, not only the file hash, when in doubt.
 - This page/manifest contains no analytics and makes no network calls.

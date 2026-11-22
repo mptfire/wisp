@@ -15,3 +15,8 @@ node_modules/
 app/temp/
 .kotlin/
 .vscode/
+
+# fork release local artifacts
+dist/*.apk
+dist/SHA256SUMS
+dist/staging/
