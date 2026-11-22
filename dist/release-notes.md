@@ -3,10 +3,21 @@
 Security-focused fork release of Wisp, based on upstream `main` at
 `09e26e0e` plus two open upstream PRs landed here:
 
-- **Google Sign-In removed & NIP-55 Amber signer restored**: stripped
-  Google OAuth, Google Drive backup, `googleid`, and `play-services-auth`
-  SDKs, and restored NIP-55 external signer support (Amber /
-  `nostrsigner:`) alongside local `nsec` and watch-only `npub` login.
+- **Google Sign-In removed & sovereign Nostr auth**: stripped Google
+  OAuth, Google Drive backup, `googleid`, and `play-services-auth` SDKs,
+  and shipped full sovereign Nostr sign-in:
+  - **NIP-55 external signer (Amber)** restored for signing and DM
+    encryption without exposing your private key to the app.
+  - **NIP-49 encrypted key backups (`ncryptsec1…`)**: scrypt +
+    XChaCha20-Poly1305 login unlock and encrypted export from both
+    onboarding and Settings → Keys (with `log_n` DoS bounds and AAD
+    verification).
+  - **NIP-06 recovery phrases**: 12/24-word BIP-39 mnemonic login
+    (`m/44'/1237'/0'/0/0`) with Unicode whitespace normalization and
+    fail-closed checksum validation.
+  - **Mandatory signup backup step**: new accounts confirm key backup
+    (reveal/copy, password-protected `ncryptsec`, or OS password manager)
+    before continuing onboarding, resilient to background process death.
 - **DM seal authentication** (upstream #675): NIP-17 rumor authors
   (kinds 14, 15, 7, 1) are authenticated against the kind-13 seal's
   signature and bound to the seal's pubkey before a message is trusted.

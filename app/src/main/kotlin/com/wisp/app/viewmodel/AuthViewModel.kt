@@ -200,6 +200,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             val pubkey = Nip19.npubDecode(npub)
             val pubkeyHex = pubkey.toHex()
             keyRepo.savePubkeyReadOnly(pubkeyHex)
+            keyRepo.setKeyBackupConfirmed(true)
             keyRepo.reloadPrefs(pubkeyHex)
             _npub.value = Nip19.npubEncode(pubkey)
             _signingMode.value = SigningMode.READ_ONLY
