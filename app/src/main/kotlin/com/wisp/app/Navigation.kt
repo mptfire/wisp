@@ -58,6 +58,7 @@ import com.wisp.app.ui.component.pendingEmojiReactCallback
 import com.wisp.app.ui.component.AuthApprovalDialog
 import com.wisp.app.ui.screen.BlossomServersScreen
 import com.wisp.app.ui.screen.AuthScreen
+import com.wisp.app.ui.screen.OnboardingBackupKeyScreen
 import com.wisp.app.ui.screen.SplashScreen
 import com.wisp.app.ui.screen.ComposeScreen
 import com.wisp.app.ui.screen.ContactPickerScreen
@@ -161,6 +162,7 @@ object Routes {
     const val BOOKMARKS = "bookmarks"
     const val BOOKMARK_SET_DETAIL = "bookmark_set/{pubkey}/{dTag}"
     const val LOADING = "loading"
+    const val ONBOARDING_BACKUP_KEY = "onboarding/backup-key"
     const val ONBOARDING_PROFILE = "onboarding/profile"
     const val ONBOARDING_SUGGESTIONS = "onboarding/suggestions"
     const val ONBOARDING_TOPICS = "onboarding/topics"
@@ -438,7 +440,7 @@ fun WispNavHost(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val nonAppRoutes = setOf(Routes.SPLASH, Routes.AUTH, Routes.LOADING, Routes.ONBOARDING_PROFILE, Routes.ONBOARDING_SUGGESTIONS, Routes.ONBOARDING_TOPICS, Routes.ONBOARDING_FIRST_POST, Routes.EXISTING_USER_ONBOARDING, Routes.WATCH_ONLY_ONBOARDING)
+    val nonAppRoutes = setOf(Routes.SPLASH, Routes.AUTH, Routes.LOADING, Routes.ONBOARDING_PROFILE, Routes.ONBOARDING_SUGGESTIONS, Routes.ONBOARDING_TOPICS, Routes.ONBOARDING_FIRST_POST, Routes.EXISTING_USER_ONBOARDING, Routes.WATCH_ONLY_ONBOARDING, Routes.ONBOARDING_BACKUP_KEY)
     val hideBottomBarRoutes = nonAppRoutes + Routes.DM_CONVERSATION + Routes.DM_CONVERSATION_GROUP + Routes.CONTACT_PICKER + Routes.GROUP_ROOM + Routes.GROUP_DETAIL + Routes.LIVE_STREAM
     val socialGraphDiscoveryState by feedViewModel.extendedNetworkRepo.discoveryState.collectAsState()
     val socialGraphComputing = currentRoute == Routes.SOCIAL_GRAPH && (
@@ -686,7 +688,7 @@ fun WispNavHost(
                 viewModel = splashViewModel,
                 authViewModel = authViewModel,
                 onAccountCreated = {
-                    navController.navigate(Routes.ONBOARDING_PROFILE) {
+                    navController.navigate(Routes.ONBOARDING_BACKUP_KEY) {
                         popUpTo(Routes.SPLASH) { inclusive = true }
                     }
                 },
@@ -792,6 +794,17 @@ fun WispNavHost(
                         navController.navigate(Routes.FEED) {
                             popUpTo(Routes.LOADING) { inclusive = true }
                         }
+                    }
+                }
+            )
+        }
+
+        composable(Routes.ONBOARDING_BACKUP_KEY) {
+            OnboardingBackupKeyScreen(
+                authViewModel = authViewModel,
+                onContinue = {
+                    navController.navigate(Routes.ONBOARDING_PROFILE) {
+                        popUpTo(Routes.ONBOARDING_BACKUP_KEY) { inclusive = true }
                     }
                 }
             )

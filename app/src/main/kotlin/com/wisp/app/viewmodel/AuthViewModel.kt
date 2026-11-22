@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.wisp.app.nostr.Keys
 import com.wisp.app.nostr.Nip19
+import com.wisp.app.nostr.Nip06
+import com.wisp.app.nostr.Nip49
 import com.wisp.app.nostr.hexToByteArray
 import com.wisp.app.nostr.toHex
 import com.wisp.app.repo.AccountInfo
@@ -18,6 +20,10 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _nsecInput = MutableStateFlow("")
     val nsecInput: StateFlow<String> = _nsecInput
+
+    /** Set when the pasted key is an ncryptsec backup awaiting its passphrase. */
+    private val _pendingNcryptsec = MutableStateFlow<String?>(null)
+    val pendingNcryptsec: StateFlow<String?> = _pendingNcryptsec
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
@@ -76,9 +82,11 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             input.startsWith("nsec1") -> loginWithNsec(input)
             input.startsWith("npub1") -> loginWithNpub(input)
             input.startsWith("nprofile1") -> loginWithNprofile(input)
+            input.startsWith("ncryptsec1") -> loginWithNcryptsec(input)
+            input.split(Regex("\\s+")).size >= 12 -> loginWithMnemonic(input)
             input.length == 64 && input.all { it in '0'..'9' || it in 'a'..'f' } -> loginWithPubkeyHex(input)
             else -> {
-                _error.value = "Invalid key format — enter an nsec or npub"
+                _error.value = "Invalid key format — enter an nsec, npub, recovery phrase, or ncryptsec backup"
                 false
             }
         }
@@ -97,6 +105,59 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             true
         } catch (e: Exception) {
             _error.value = "Invalid nsec key: ${e.message}"
+            false
+        }
+    }
+
+    /** An ncryptsec login needs its passphrase first - stash the payload and ask. */
+    private fun loginWithNcryptsec(ncryptsec: String): Boolean {
+        _pendingNcryptsec.value = ncryptsec
+        _error.value = "Encrypted key backup detected - enter its passphrase to unlock"
+        return false
+    }
+
+    fun clearPendingNcryptsec() {
+        _pendingNcryptsec.value = null
+        _error.value = null
+    }
+
+    /** Decrypts the pending ncryptsec with the given passphrase and logs in as LOCAL. */
+    suspend fun completeNcryptsecLogin(passphrase: String): Boolean {
+        val ncryptsec = _pendingNcryptsec.value ?: return false
+        return try {
+            val privkey = Nip49.decrypt(ncryptsec, passphrase)
+            val keypair = Keys.fromPrivkey(privkey)
+            keyRepo.saveKeypair(keypair)
+            keyRepo.reloadPrefs(keypair.pubkey.toHex())
+            _npub.value = Nip19.npubEncode(keypair.pubkey)
+            _signingMode.value = SigningMode.LOCAL
+            _nsecInput.value = ""
+            _pendingNcryptsec.value = null
+            _error.value = null
+            true
+        } catch (e: Exception) {
+            _error.value = "Wrong passphrase or corrupted backup"
+            false
+        }
+    }
+
+    private fun loginWithMnemonic(mnemonic: String): Boolean {
+        return try {
+            val privkey = Nip06.privkeyOrNull(mnemonic)
+            if (privkey == null) {
+                _error.value = "Invalid recovery phrase (check spelling and word count)"
+                return false
+            }
+            val keypair = Keys.fromPrivkey(privkey)
+            keyRepo.saveKeypair(keypair)
+            keyRepo.reloadPrefs(keypair.pubkey.toHex())
+            _npub.value = Nip19.npubEncode(keypair.pubkey)
+            _signingMode.value = SigningMode.LOCAL
+            _nsecInput.value = ""
+            _error.value = null
+            true
+        } catch (e: Exception) {
+            _error.value = "Invalid recovery phrase"
             false
         }
     }

@@ -331,6 +331,8 @@ private fun NostrLoginSheet(
     val scope = rememberCoroutineScope()
     val nsecInput by authViewModel.nsecInput.collectAsState()
     val error by authViewModel.error.collectAsState()
+    val pendingNcryptsec by authViewModel.pendingNcryptsec.collectAsState()
+    var passphrase by remember { mutableStateOf("") }
     var nsecVisible by remember { mutableStateOf(false) }
     var isCreating by remember { mutableStateOf(false) }
     var autofillRequested by remember { mutableStateOf(false) }
@@ -396,7 +398,41 @@ private fun NostrLoginSheet(
 
             Spacer(Modifier.height(20.dp))
 
-            OutlinedTextField(
+            if (pendingNcryptsec != null) {
+                Text(
+                    text = "This is an encrypted key backup. Enter its passphrase to unlock it.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = passphrase,
+                    onValueChange = { passphrase = it },
+                    label = { Text("Backup passphrase") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    enabled = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { passphrase = ""; authViewModel.clearPendingNcryptsec() },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Back") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                if (authViewModel.completeNcryptsecLogin(passphrase)) onLoggedIn()
+                            }
+                        },
+                        enabled = passphrase.isNotBlank(),
+                        modifier = Modifier.weight(1f).height(48.dp)
+                    ) { Text("Unlock") }
+                }
+            } else OutlinedTextField(
                 value = nsecInput,
                 onValueChange = { authViewModel.updateNsecInput(it) },
                 label = { Text(stringResource(R.string.auth_nsec_or_npub)) },
@@ -439,17 +475,19 @@ private fun NostrLoginSheet(
 
             Spacer(Modifier.height(12.dp))
 
-            Button(
-                onClick = {
-                    if (authViewModel.logIn()) onLoggedIn()
-                },
-                enabled = nsecInput.isNotBlank() && !isCreating,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(24.dp)
-            ) {
-                Text(stringResource(R.string.auth_log_in))
+            if (pendingNcryptsec == null) {
+                Button(
+                    onClick = {
+                        if (authViewModel.logIn()) onLoggedIn()
+                    },
+                    enabled = nsecInput.isNotBlank() && !isCreating,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text(stringResource(R.string.auth_log_in))
+                }
             }
 
             if (signerAvailable) {
@@ -480,12 +518,6 @@ private fun NostrLoginSheet(
                         isCreating = true
                         try {
                             if (authViewModel.signUp()) {
-                                val nsec = authViewModel.getCurrentNsec()
-                                val npub = authViewModel.npub.value
-                                val activity = context as? ComponentActivity
-                                if (activity != null && nsec != null && npub != null) {
-                                    NostrCredentialSaver.saveNsec(activity, npub, nsec)
-                                }
                                 onAccountCreated()
                             }
                         } finally {
