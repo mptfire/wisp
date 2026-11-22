@@ -32,6 +32,7 @@ case "$MODE" in
       --pattern "wisp-${VERSION}.apk" --pattern "SHA256SUMS" ;;
   run)
     gh run download "$RUN_ID" -n fork-release-files -D staging
+    rm -f staging/certs.txt
     [ -f "staging/wisp-${VERSION}.apk" ] || { echo "artifact missing wisp-${VERSION}.apk" >&2; exit 1; } ;;
   apk)
     src="$APK_SRC"
