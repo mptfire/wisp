@@ -1,98 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wisp fork — download</title>
-<style>
-  :root { color-scheme: dark; }
-  body {
-    margin: 0; padding: 2rem 1rem; background: #0e1116; color: #e6e9ef;
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    display: flex; justify-content: center;
-  }
-  main { max-width: 42rem; }
-  h1 { font-size: 1.9rem; margin: 0 0 .25rem; }
-  .sub { color: #98a2b3; margin-bottom: 2rem; }
-  .card {
-    background: #161b24; border: 1px solid #2a3242; border-radius: 12px;
-    padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
-  }
-  .card h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
-  a.btn {
-    display: inline-block; background: #7c5cff; color: #fff; text-decoration: none;
-    padding: .6rem 1.2rem; border-radius: 8px; font-weight: 600;
-  }
-  a.btn:hover { background: #6a4be0; }
-  code, .mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: .85em; color: #c3cbdb; word-break: break-all;
-  }
-  .warn { border-color: #8a6d1a; }
-  .warn h2 { color: #e8c452; }
-  dl { margin: .5rem 0 0; }
-  dt { color: #98a2b3; font-size: .85rem; margin-top: .6rem; }
-  dd { margin: 0; }
-  footer { color: #98a2b3; font-size: .85rem; margin-top: 2rem; }
-  footer a { color: #9db1d8; }
-</style>
-</head>
-<body>
-<main>
-  <h1>Wisp fork</h1>
-  <p class="sub">Community-maintained build of the Wisp Nostr client
-  (native Android, self-custodial Lightning wallet via the Spark SDK).</p>
-
-  <div class="card">
-    <h2>Latest release — <span class="mono">1.3.0-fork.1</span> (versionCode 92)</h2>
-    <p><a class="btn" id="download" href="./wisp-1.3.0-fork.1.apk">Download APK</a></p>
-    <p style="color:#98a2b3">arm64-v8a · Android 8.0+ · ~104 MB</p>
-    <dl>
-      <dt>SHA-256 of the APK</dt>
-      <dd class="mono" id="sha256">see SHA256SUMS in the published bundle</dd>
-      <dt>Signing certificate SHA-256 (verify before installing)</dt>
-      <dd class="mono">3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a</dd>
-      <dt>Checksums</dt>
-      <dd><a href="./SHA256SUMS" class="mono">SHA256SUMS</a></dd>
-    </dl>
-  </div>
-
-  <div class="card warn">
-    <h2>Before you install</h2>
-    <ul>
-      <li>Installs side-by-side with upstream Wisp: this fork uses its own
-        package ID (<span class="mono">de.rtard.wisp</span>, launcher name
-        "Wisp Fork"), so both can stay installed. Restore and verify your
-        recovery phrase / nsec inside Wisp Fork before uninstalling the
-        upstream app.</li>
-      <li>Verify the APK checksum against <span class="mono">SHA256SUMS</span>,
-        or check the signing certificate fingerprint above in your installer.</li>
-      <li>This is an independent fork build. It is not published or endorsed by
-        the upstream author.</li>
-    </ul>
-  </div>
-
-  <div class="card">
-    <h2>What changed in this fork</h2>
-    <ul>
-      <li>DM seal authentication and rumor-author binding (NIP-17)</li>
-      <li>Fail-closed BIP-39 mnemonic validation with Unicode-space normalization</li>
-      <li>All previously merged security hardening: LNURL zap-request binding,
-        receipt consistency checks, SSRF guards, bech32 checksum verification</li>
-      <li>LNURL responses on chunked/HTTP-2 transports read correctly
-        (zaps to Cloudflare-fronted providers were broken)</li>
-      <li>DM media auto-fetch gated behind a setting — no zero-click
-        IP leak; size caps and SHA-256 verification on media</li>
-      <li>Crash logs redact secrets before writing</li>
-    </ul>
-    <p style="color:#98a2b3">Source: <a class="mono" href="https://github.com/mptfire/wisp">github.com/mptfire/wisp</a>,
-    release branch <span class="mono">release/v1.3.0-fork.1</span>.
-    No analytics, no trackers, nothing phoned home by this page.</p>
-  </div>
-
-  <footer>
-    Static page — served as plain files, no JavaScript required.
-  </footer>
-</main>
-</body>
-</html>
+{
+  "name": "Wisp fork",
+  "version": "1.3.0-fork.1",
+  "versionCode": 92,
+  "applicationId": "de.rtard.wisp",
+  "label": "Wisp Fork",
+  "abi": [
+    "arm64-v8a"
+  ],
+  "minSdk": 26,
+  "targetSdk": 36,
+  "apk": "wisp-1.3.0-fork.1.apk",
+  "sha256": null,
+  "sha256Note": "filled in the published staging bundle by dist/publish.sh",
+  "certSha256": "3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a",
+  "released": "2026-11-22",
+  "source": "https://github.com/mptfire/wisp/tree/release/v1.3.0-fork.1",
+  "notes": "release-notes.md"
+}
