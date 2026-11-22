@@ -20,8 +20,8 @@ android {
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 91
-        versionName = "1.3.0"
+        versionCode = 92
+        versionName = "1.3.0-fork.1"
         resValue("string", "app_name", "Wisp")
 
         ndk {
@@ -38,6 +38,25 @@ android {
         buildConfigField("String", "BREEZ_SDK_VERSION", "\"${libs.versions.breez.sdk.spark.get()}\"")
     }
 
+    signingConfigs {
+        // Fork release signing. The keystore never lives in the repo or CI logs;
+        // all four values come from the environment (or ~/.config/wisp-fork/
+        // signing.env locally, GitHub secrets in CI). When they are absent,
+        // assembleRelease still succeeds and produces an unsigned APK.
+        create("forkRelease") {
+            val ksPath = System.getenv("WISP_FORK_KEYSTORE")
+            val ksPass = System.getenv("WISP_FORK_KEYSTORE_PASSWORD")
+            val keyAliasName = System.getenv("WISP_FORK_KEY_ALIAS")
+            val keyPass = System.getenv("WISP_FORK_KEY_PASSWORD")
+            if (ksPath != null && ksPass != null && keyAliasName != null && keyPass != null) {
+                storeFile = file(ksPath)
+                storePassword = ksPass
+                this.keyAlias = keyAliasName
+                this.keyPassword = keyPass
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = debugApplicationIdSuffix
@@ -48,6 +67,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (System.getenv("WISP_FORK_KEYSTORE") != null) {
+                signingConfig = signingConfigs.getByName("forkRelease")
+            }
         }
 
         create("staging") {
@@ -110,20 +132,6 @@ dependencies {
     testRuntimeOnly(libs.secp256k1.kmp.jni.jvm)
     testImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
-
-    androidTestImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.runner)
-
-    // JVM natives for the secp256k1 JNI so the crypto regression suites can
-    // run as plain unit tests (CI has no emulator for these; the same suites
-    // also remain in androidTest for on-device runs).
-    testImplementation(libs.secp256k1.kmp.jvm)
-    testImplementation(libs.secp256k1.kmp.jni.jvm)
-    testImplementation(libs.secp256k1.kmp.jni.common)
-    testImplementation(libs.secp256k1.kmp.jni.jvm.extract)
-    testImplementation(libs.secp256k1.kmp.jni.jvm.linux)
-    testImplementation(libs.secp256k1.kmp.jni.jvm.darwin)
-    testImplementation(libs.secp256k1.kmp.jni.jvm.mingw)
 
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.runner)
