@@ -103,9 +103,10 @@
   `3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a`.
 - versionCode 92, versionName 1.3.0-fork.1, applicationId
   `de.rtard.wisp`, application-label "Wisp Fork".
-- `dist/release.json` `sha256` is null until `dist/publish.sh` fills it
-  from the canonical CI release artifact (the cert SHA-256 pin is the
-  durable trust anchor and stays hardcoded).
+- `dist/release.json` `sha256` stays null in git; `dist/publish.sh`
+  writes the verified hash into the staging/ copies only (the bundle
+  that gets rsync'd), so dry runs keep `git status` clean. The cert
+  SHA-256 pin is the durable trust anchor and stays hardcoded.
 - Still to do: install on a device/emulator, send/receive a DM, run a
   zap end-to-end once the API key decision is made.
 
