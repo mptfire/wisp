@@ -308,7 +308,7 @@ fun SplashScreen(
                     onResult = { raw ->
                         showQrScanner = false
                         authViewModel.updateNsecInput(raw.trim())
-                        if (!authViewModel.logIn()) showNostrSheet = true
+                        if (authViewModel.logIn()) onLoggedIn() else showNostrSheet = true
                     },
                     modifier = Modifier.fillMaxSize(),
                     promptText = "Scan nsec, npub, nprofile, recovery phrase, or ncryptsec QR"
@@ -421,6 +421,7 @@ private fun NostrLoginSheet(
                 Row(modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(
                         onClick = { passphrase = ""; authViewModel.clearPendingNcryptsec() },
+                        enabled = !isUnlocking,
                         modifier = Modifier.weight(1f)
                     ) { Text("Back") }
                     Spacer(Modifier.width(8.dp))

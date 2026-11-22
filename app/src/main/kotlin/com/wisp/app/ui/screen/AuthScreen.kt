@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.width
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -30,8 +29,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -69,7 +66,6 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sign
 import kotlin.math.sin
-import androidx.compose.ui.res.stringResource
 import com.wisp.app.R
 import com.wisp.app.nostr.Nip19
 import com.wisp.app.nostr.RemoteSignerBridge
@@ -228,6 +224,7 @@ fun AuthScreen(
             Row(modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
                     onClick = { passphrase = ""; viewModel.clearPendingNcryptsec() },
+                    enabled = !isUnlocking,
                     modifier = Modifier.weight(1f)
                 ) { Text("Back") }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -281,13 +278,15 @@ fun AuthScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        OutlinedButton(
-            onClick = {
-                if (viewModel.logIn()) onAuthenticated(false)
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.auth_log_in))
+        if (pendingNcryptsec == null) {
+            OutlinedButton(
+                onClick = {
+                    if (viewModel.logIn()) onAuthenticated(false)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.auth_log_in))
+            }
         }
 
         if (signerAvailable) {

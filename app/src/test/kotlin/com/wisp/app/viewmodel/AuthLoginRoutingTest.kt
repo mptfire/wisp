@@ -1,6 +1,10 @@
 package com.wisp.app.viewmodel
 
 import android.app.Application
+import androidx.security.crypto.MasterKey
+import androidx.security.crypto.EncryptedSharedPreferences
+import android.content.SharedPreferences
+import android.content.Context
 import com.wisp.app.nostr.Nip06
 import com.wisp.app.nostr.Nip19
 import com.wisp.app.nostr.Nip49
@@ -88,6 +92,72 @@ class AuthLoginRoutingTest {
         assertTrue(vm.logIn())
         assertEquals(SigningMode.LOCAL, vm.signingModeFlow.value)
         assertEquals("npub16sdj9zv4f8sl85e45vgq9n7nsgt5qphpvmf7vk8r5hhvmdjxx4es8rq74h", vm.npub.value)
+    }
+
+    /**
+     * Regression guard for the pre-save wipe: with the REAL KeyRepository
+     * (Keystore stubbed, SharedPreferences real), the PERSISTED privkey must
+     * equal the derived key - a wipe-before-save would store zeros.
+     */
+    @Test
+    fun mnemonicLoginPersistsRealKeyBytes() {
+        val app = RuntimeEnvironment.getApplication() as Application
+        Mockito.mockConstruction(MasterKey.Builder::class.java) { builder, _ ->
+            Mockito.`when`(builder.setKeyScheme(Mockito.any())).thenReturn(builder)
+            Mockito.`when`(builder.build()).thenReturn(Mockito.mock(MasterKey::class.java))
+        }.use {
+            Mockito.mockStatic(EncryptedSharedPreferences::class.java).use { enc ->
+                enc.`when`<SharedPreferences> {
+                    EncryptedSharedPreferences.create(
+                        Mockito.any<Context>(), Mockito.anyString(), Mockito.any<MasterKey>(),
+                        Mockito.any<EncryptedSharedPreferences.PrefKeyEncryptionScheme>(),
+                        Mockito.any<EncryptedSharedPreferences.PrefValueEncryptionScheme>()
+                    )
+                }.thenReturn(app.getSharedPreferences("stub_enc_prefs", Context.MODE_PRIVATE))
+
+                val vm = AuthViewModel(app)
+                vm.updateNsecInput(mnemonic12)
+                assertTrue(vm.logIn())
+                val persisted = KeyRepository(app).getKeypair()!!
+                assertEquals(
+                    "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
+                    persisted.privkey.toHex()
+                )
+                assertEquals(
+                    "17162c921dc4d2518f9a101db33695df1afb56ab82f5ff3e5da6eec3ca5cd917",
+                    persisted.pubkey.toHex()
+                )
+            }
+        }
+    }
+
+    @Test
+    fun ncryptsecLoginPersistsRealKeyBytes() = runBlocking {
+        val app = RuntimeEnvironment.getApplication() as Application
+        Mockito.mockConstruction(MasterKey.Builder::class.java) { builder, _ ->
+            Mockito.`when`(builder.setKeyScheme(Mockito.any())).thenReturn(builder)
+            Mockito.`when`(builder.build()).thenReturn(Mockito.mock(MasterKey::class.java))
+        }.use {
+            Mockito.mockStatic(EncryptedSharedPreferences::class.java).use { enc ->
+                enc.`when`<SharedPreferences> {
+                    EncryptedSharedPreferences.create(
+                        Mockito.any<Context>(), Mockito.anyString(), Mockito.any<MasterKey>(),
+                        Mockito.any<EncryptedSharedPreferences.PrefKeyEncryptionScheme>(),
+                        Mockito.any<EncryptedSharedPreferences.PrefValueEncryptionScheme>()
+                    )
+                }.thenReturn(app.getSharedPreferences("stub_enc_prefs", Context.MODE_PRIVATE))
+
+                val vm = AuthViewModel(app)
+                vm.updateNsecInput(officialNcryptsec)
+                assertFalse(vm.logIn())
+                assertTrue(vm.completeNcryptsecLogin("nostr"))
+                val persisted = KeyRepository(app).getKeypair()!!
+                assertEquals(
+                    "3501454135014541350145413501453fefb02227e449e57cf4d3a3ce05378683",
+                    persisted.privkey.toHex()
+                )
+            }
+        }
     }
 
     @Test

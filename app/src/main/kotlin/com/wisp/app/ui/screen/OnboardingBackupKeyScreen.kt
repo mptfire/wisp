@@ -135,7 +135,10 @@ fun OnboardingBackupKeyScreen(
         }
         Spacer(Modifier.height(16.dp))
         Button(
-            onClick = onContinue,
+            onClick = {
+                authViewModel.keyRepo.setKeyBackupConfirmed(true)
+                onContinue()
+            },
             enabled = confirmedSaved,
             modifier = Modifier.fillMaxWidth().height(48.dp)
         ) { Text("Continue") }
