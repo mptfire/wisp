@@ -3,11 +3,17 @@ package com.wisp.app.ui.screen
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContextWrapper
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PersistableBundle
 import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.QrCode
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -35,6 +42,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -51,12 +59,15 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -69,6 +80,7 @@ import com.wisp.app.R
 import com.wisp.app.nostr.Nip19
 import com.wisp.app.nostr.hexToByteArray
 import com.wisp.app.repo.KeyRepository
+import com.wisp.app.repo.SigningMode
 import com.wisp.app.ui.component.QrCodeDialog
 
 private fun android.content.Context.findFragmentActivity(): FragmentActivity? {
@@ -80,6 +92,8 @@ private fun android.content.Context.findFragmentActivity(): FragmentActivity? {
     return null
 }
 
+private enum class SignerHealth { Checking, Available, Unavailable }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KeysScreen(
@@ -87,6 +101,7 @@ fun KeysScreen(
     onBack: () -> Unit,
     avatarUrl: String? = null
 ) {
+    val signingMode = remember { keyRepository.getSigningMode() }
     val pubkeyHex = remember { keyRepository.getPubkeyHex() }
     val keypair = remember { keyRepository.getKeypair() }
     val npub = remember {
@@ -184,7 +199,9 @@ fun KeysScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (keyRepository.isReadOnly()) {
+            if (signingMode == SigningMode.REMOTE) {
+                RemoteSignerSection(keyRepository = keyRepository)
+            } else if (keyRepository.isReadOnly()) {
                 Text(
                     text = stringResource(R.string.settings_private_key),
                     style = MaterialTheme.typography.titleSmall,
@@ -399,3 +416,144 @@ private fun NsecQrDialog(nsec: String, avatarUrl: String? = null, onDismiss: () 
         }
     )
 }
+
+@Composable
+private fun RemoteSignerSection(keyRepository: KeyRepository) {
+    val context = LocalContext.current
+    val signerPackage = remember { keyRepository.getSignerPackage() }
+    var refreshTick by remember { mutableStateOf(0) }
+    var health by remember { mutableStateOf(SignerHealth.Checking) }
+
+    LaunchedEffect(refreshTick, signerPackage) {
+        health = SignerHealth.Checking
+        health = if (!signerPackage.isNullOrBlank() && isPackageInstalled(context, signerPackage)) {
+            SignerHealth.Available
+        } else {
+            SignerHealth.Unavailable
+        }
+    }
+
+    Text(
+        text = stringResource(R.string.settings_remote_signer),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = stringResource(R.string.settings_remote_signer_description),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HealthDot(health = health)
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = when (health) {
+                    SignerHealth.Checking -> stringResource(R.string.settings_remote_signer_status_checking)
+                    SignerHealth.Available -> stringResource(R.string.settings_remote_signer_status_available)
+                    SignerHealth.Unavailable -> stringResource(R.string.settings_remote_signer_status_unavailable)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedButton(
+                onClick = { refreshTick++ },
+                enabled = health != SignerHealth.Checking
+            ) {
+                Icon(
+                    Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(stringResource(R.string.settings_remote_signer_refresh))
+            }
+        }
+    }
+
+    if (!signerPackage.isNullOrBlank()) {
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = stringResource(R.string.settings_remote_signer_package),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = signerPackage,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(12.dp)
+            )
+        }
+    } else {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.settings_remote_signer_status_none),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun HealthDot(health: SignerHealth) {
+    val color = when (health) {
+        SignerHealth.Checking -> MaterialTheme.colorScheme.primary
+        SignerHealth.Available -> Color(0xFF4CAF50)
+        SignerHealth.Unavailable -> MaterialTheme.colorScheme.error
+    }
+    val pulse = if (health == SignerHealth.Checking) {
+        val transition = rememberInfiniteTransition(label = "signer-pulse")
+        transition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.6f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(900),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "scale"
+        ).value
+    } else {
+        1f
+    }
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(20.dp)) {
+        if (health == SignerHealth.Checking) {
+            Box(
+                modifier = Modifier
+                    .size(14.dp)
+                    .scale(pulse)
+                    .background(color.copy(alpha = 0.35f), CircleShape)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(color, CircleShape)
+        )
+    }
+}
+
+private fun isPackageInstalled(context: android.content.Context, packageName: String): Boolean =
+    try {
+        val pm = context.packageManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getPackageInfo(packageName, 0)
+        }
+        true
+    } catch (_: PackageManager.NameNotFoundException) {
+        false
+    } catch (_: Exception) {
+        false
+    }

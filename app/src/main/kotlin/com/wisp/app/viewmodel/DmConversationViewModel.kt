@@ -18,6 +18,7 @@ import com.wisp.app.nostr.Nip17
 import com.wisp.app.nostr.Nip19
 import com.wisp.app.nostr.Nip51
 import com.wisp.app.nostr.NostrSigner
+import com.wisp.app.nostr.SignerCancelledException
 import com.wisp.app.repo.MuteRepository
 import com.wisp.app.nostr.hexToByteArray
 import com.wisp.app.nostr.toHex
@@ -726,10 +727,13 @@ class DmConversationViewModel(app: Application) : AndroidViewModel(app) {
                     dmRepo?.addMessage(dmMsg, conversationKey)
                     dmRepo?.markGiftWrapSeen(selfWrap.id, dmMsg.id)
                     clearReply()
+                } catch (e: SignerCancelledException) {
+                    _messageText.value = text
+                    _sendError.value = "Signing cancelled"
                 } catch (e: Exception) {
                     _messageText.value = text
                     _sendError.value = "Failed to send message"
-                    Log.w("DmConversation", "Send failed", e)
+                    Log.w("DmConversation", "Send failed (remote signer)", e)
                 } finally {
                     _sending.value = false
                     _miningStatus.value = PowStatus.Idle

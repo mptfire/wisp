@@ -149,6 +149,14 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun loginWithSigner(pubkeyHex: String, signerPackage: String?) {
+        keyRepo.savePubkeyOnly(pubkeyHex, signerPackage)
+        keyRepo.reloadPrefs(pubkeyHex)
+        _npub.value = Nip19.npubEncode(pubkeyHex.hexToByteArray())
+        _signingMode.value = SigningMode.REMOTE
+        _error.value = null
+    }
+
     fun switchAccount(pubkeyHex: String) {
         keyRepo.switchToAccount(pubkeyHex)
         keyRepo.reloadPrefs(pubkeyHex)

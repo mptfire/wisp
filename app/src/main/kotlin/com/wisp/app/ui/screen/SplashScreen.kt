@@ -1,6 +1,8 @@
 package com.wisp.app.ui.screen
 
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -38,6 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,6 +75,9 @@ import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
 import com.wisp.app.R
 import com.wisp.app.auth.NostrCredentialSaver
+import com.wisp.app.nostr.Nip19
+import com.wisp.app.nostr.RemoteSignerBridge
+import com.wisp.app.nostr.toHex
 import com.wisp.app.viewmodel.AuthViewModel
 import com.wisp.app.viewmodel.LiveMetrics
 import com.wisp.app.viewmodel.SplashViewModel
@@ -328,6 +334,33 @@ private fun NostrLoginSheet(
     var nsecVisible by remember { mutableStateOf(false) }
     var isCreating by remember { mutableStateOf(false) }
     var autofillRequested by remember { mutableStateOf(false) }
+    val signerAvailable = remember { RemoteSignerBridge.isSignerAvailable(context) }
+
+    var signerLoginComplete by remember { mutableStateOf(false) }
+    if (signerLoginComplete) {
+        LaunchedEffect(Unit) {
+            signerLoginComplete = false
+            onLoggedIn()
+        }
+    }
+
+    val signerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { activityResult ->
+        val data = activityResult.data ?: return@rememberLauncherForActivityResult
+        val rawResult = data.getStringExtra("result")?.trim() ?: return@rememberLauncherForActivityResult
+        val pkg = data.getStringExtra("package")?.takeIf { it.isNotBlank() }
+            ?: RemoteSignerBridge.resolveDefaultSignerPackage(context)
+        val pubkeyHex = if (rawResult.startsWith("npub1")) {
+            try { Nip19.npubDecode(rawResult).toHex() } catch (_: Exception) { return@rememberLauncherForActivityResult }
+        } else if (rawResult.length == 64 && rawResult.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
+            rawResult.lowercase()
+        } else {
+            return@rememberLauncherForActivityResult
+        }
+        authViewModel.loginWithSigner(pubkeyHex, pkg)
+        signerLoginComplete = true
+    }
 
     ModalBottomSheet(
         onDismissRequest = { if (!isCreating) onDismiss() },
@@ -417,6 +450,23 @@ private fun NostrLoginSheet(
                 shape = RoundedCornerShape(24.dp)
             ) {
                 Text(stringResource(R.string.auth_log_in))
+            }
+
+            if (signerAvailable) {
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = {
+                        val intent = RemoteSignerBridge.buildGetPublicKeyIntent()
+                        signerLauncher.launch(intent)
+                    },
+                    enabled = !isCreating,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text(stringResource(R.string.auth_login_with_signer))
+                }
             }
 
             Spacer(Modifier.height(20.dp))

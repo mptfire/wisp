@@ -1,5 +1,7 @@
 package com.wisp.app.ui.screen
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +40,7 @@ import com.wisp.app.ui.component.NsecPasteGuard
 import com.wisp.app.ui.component.QrScanner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -61,6 +65,9 @@ import kotlin.math.sign
 import kotlin.math.sin
 import androidx.compose.ui.res.stringResource
 import com.wisp.app.R
+import com.wisp.app.nostr.Nip19
+import com.wisp.app.nostr.RemoteSignerBridge
+import com.wisp.app.nostr.toHex
 import com.wisp.app.viewmodel.AuthViewModel
 
 @Composable
@@ -69,10 +76,38 @@ fun AuthScreen(
     showSignUp: Boolean = true,
     onAuthenticated: (isNewAccount: Boolean) -> Unit
 ) {
+    val context = LocalContext.current
     val nsecInput by viewModel.nsecInput.collectAsState()
     val error by viewModel.error.collectAsState()
     var nsecVisible by remember { mutableStateOf(false) }
     var showQrScanner by remember { mutableStateOf(false) }
+    val signerAvailable = remember { RemoteSignerBridge.isSignerAvailable(context) }
+
+    var signerLoginComplete by remember { mutableStateOf(false) }
+    if (signerLoginComplete) {
+        LaunchedEffect(Unit) {
+            signerLoginComplete = false
+            onAuthenticated(false)
+        }
+    }
+
+    val signerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { activityResult ->
+        val data = activityResult.data ?: return@rememberLauncherForActivityResult
+        val rawResult = data.getStringExtra("result")?.trim() ?: return@rememberLauncherForActivityResult
+        val pkg = data.getStringExtra("package")?.takeIf { it.isNotBlank() }
+            ?: RemoteSignerBridge.resolveDefaultSignerPackage(context)
+        val pubkeyHex = if (rawResult.startsWith("npub1")) {
+            try { Nip19.npubDecode(rawResult).toHex() } catch (_: Exception) { return@rememberLauncherForActivityResult }
+        } else if (rawResult.length == 64 && rawResult.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
+            rawResult.lowercase()
+        } else {
+            return@rememberLauncherForActivityResult
+        }
+        viewModel.loginWithSigner(pubkeyHex, pkg)
+        signerLoginComplete = true
+    }
 
     if (showQrScanner) {
         QrScanner(
@@ -197,6 +232,19 @@ fun AuthScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.auth_log_in))
+        }
+
+        if (signerAvailable) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = {
+                    val intent = RemoteSignerBridge.buildGetPublicKeyIntent()
+                    signerLauncher.launch(intent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.auth_login_with_signer))
+            }
         }
 
         error?.let {

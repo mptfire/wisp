@@ -10,7 +10,9 @@ import com.wisp.app.nostr.Nip57
 import com.wisp.app.nostr.Nip78
 import com.wisp.app.nostr.NostrEvent
 import com.wisp.app.nostr.NostrSigner
+import com.wisp.app.nostr.RemoteSigner
 import com.wisp.app.nostr.toHex
+import android.content.ContentResolver
 import com.wisp.app.relay.RelayEvent
 import com.wisp.app.repo.SigningMode
 import com.wisp.app.repo.EventRepository
@@ -136,6 +138,7 @@ class WalletViewModel(
     val eventRepo: EventRepository,
     val relayPool: RelayPool,
     val keyRepo: KeyRepository,
+    private val contentResolver: ContentResolver? = null
 ) : ViewModel() {
     private val accountScope = AccountSessionScope(viewModelScope)
     private var accountSuspended = false
@@ -1708,6 +1711,12 @@ class WalletViewModel(
             SigningMode.LOCAL -> {
                 val keypair = keyRepo.getKeypair() ?: return null
                 LocalSigner(keypair.privkey, keypair.pubkey)
+            }
+            SigningMode.REMOTE -> {
+                val pubkey = keyRepo.getPubkeyHex() ?: return null
+                val pkg = keyRepo.getSignerPackage() ?: ""
+                val cr = contentResolver ?: return null
+                RemoteSigner(pubkey, cr, pkg)
             }
             SigningMode.READ_ONLY -> null
         }
