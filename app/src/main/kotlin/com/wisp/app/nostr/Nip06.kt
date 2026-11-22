@@ -23,26 +23,37 @@ object Nip06 {
     fun privkeyOrNull(mnemonic: String): ByteArray? {
         val normalized = SparkRepository.normalizeMnemonic(mnemonic)
         if (SparkRepository.validateMnemonic(normalized) != null) return null
+        val seed = mnemonicSeed(normalized)
         return try {
-            privkeyFromSeed(mnemonicSeed(normalized))
+            privkeyFromSeed(seed)
         } catch (e: IllegalArgumentException) {
             null
+        } finally {
+            seed.fill(0)
         }
     }
 
     fun mnemonicSeed(normalizedMnemonic: String): ByteArray {
         val nfkd = Normalizer.normalize(normalizedMnemonic, Normalizer.Form.NFKD)
+        val chars = nfkd.toCharArray()
         val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA512")
-        val spec = PBEKeySpec(nfkd.toCharArray(), "mnemonic".toByteArray(Charsets.UTF_8), 2048, 512)
-        return factory.generateSecret(spec).encoded
+        val spec = PBEKeySpec(chars, "mnemonic".toByteArray(Charsets.UTF_8), 2048, 512)
+        try {
+            return factory.generateSecret(spec).encoded
+        } finally {
+            spec.clearPassword()
+            chars.fill('\u0000')
+        }
     }
 
     fun privkeyFromSeed(seed: ByteArray): ByteArray {
         require(seed.size == 64) { "BIP-39 seed must be 64 bytes" }
-        var key = hmacSha512("Bitcoin seed".toByteArray(Charsets.UTF_8), seed).copyOfRange(0, 32)
-        var chainCode = ByteArray(0)
         val master = hmacSha512("Bitcoin seed".toByteArray(Charsets.UTF_8), seed)
+        var key = ByteArray(0)
+        var chainCode = ByteArray(0)
         try {
+            val il = BigInteger(1, master.copyOfRange(0, 32))
+            require(il < CURVE_ORDER && il.signum() != 0) { "invalid BIP-32 master key" }
             key = master.copyOfRange(0, 32)
             chainCode = master.copyOfRange(32, 64)
             val path = intArrayOf(44, 1237, 0, 0, 0)
@@ -52,7 +63,9 @@ object Nip06 {
                 val child = ckdPriv(key, chainCode, index + (if (hardened) HARDENED_BIT else 0))
                 key.fill(0)
                 key = child.first
+                val oldChain = chainCode
                 chainCode = child.second
+                oldChain.fill(0)
             }
             return key.copyOf()
         } finally {

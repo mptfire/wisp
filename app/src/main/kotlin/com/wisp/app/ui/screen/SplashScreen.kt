@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import com.wisp.app.ui.component.QrScanner
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -307,10 +308,10 @@ fun SplashScreen(
                     onResult = { raw ->
                         showQrScanner = false
                         authViewModel.updateNsecInput(raw.trim())
-                        if (authViewModel.logIn()) onLoggedIn()
+                        if (!authViewModel.logIn()) showNostrSheet = true
                     },
                     modifier = Modifier.fillMaxSize(),
-                    promptText = "Scan nsec, npub, or nprofile QR"
+                    promptText = "Scan nsec, npub, nprofile, recovery phrase, or ncryptsec QR"
                 )
             }
         }
@@ -333,6 +334,7 @@ private fun NostrLoginSheet(
     val error by authViewModel.error.collectAsState()
     val pendingNcryptsec by authViewModel.pendingNcryptsec.collectAsState()
     var passphrase by remember { mutableStateOf("") }
+    var isUnlocking by remember { mutableStateOf(false) }
     var nsecVisible by remember { mutableStateOf(false) }
     var isCreating by remember { mutableStateOf(false) }
     var autofillRequested by remember { mutableStateOf(false) }
@@ -424,19 +426,31 @@ private fun NostrLoginSheet(
                     Spacer(Modifier.width(8.dp))
                     Button(
                         onClick = {
+                            if (isUnlocking) return@Button
+                            isUnlocking = true
                             scope.launch {
-                                if (authViewModel.completeNcryptsecLogin(passphrase)) onLoggedIn()
+                                val ok = authViewModel.completeNcryptsecLogin(passphrase)
+                                isUnlocking = false
+                                if (ok) {
+                                    passphrase = ""
+                                    onLoggedIn()
+                                }
                             }
                         },
-                        enabled = passphrase.isNotBlank(),
+                        enabled = passphrase.isNotBlank() && !isUnlocking,
                         modifier = Modifier.weight(1f).height(48.dp)
-                    ) { Text("Unlock") }
+                    ) {
+                        if (isUnlocking) {
+                            CircularProgressIndicator(modifier = Modifier.height(20.dp).width(20.dp), strokeWidth = 2.dp)
+                        } else Text("Unlock")
+                    }
                 }
             } else OutlinedTextField(
                 value = nsecInput,
                 onValueChange = { authViewModel.updateNsecInput(it) },
-                label = { Text(stringResource(R.string.auth_nsec_or_npub)) },
-                singleLine = true,
+                label = { Text("nsec, npub, recovery phrase, or ncryptsec backup") },
+                singleLine = false,
+                maxLines = 3,
                 visualTransformation = if (nsecVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {

@@ -114,6 +114,45 @@ class AuthLoginRoutingTest {
     }
 
     @Test
+    fun nbspSeparatedMnemonicLogsInLocal() {
+        val vm = newViewModel(RuntimeEnvironment.getApplication() as Application)
+        vm.updateNsecInput(mnemonic12.replace(" ", "\u00A0"))
+        assertTrue(vm.logIn())
+        assertEquals(SigningMode.LOCAL, vm.signingModeFlow.value)
+        assertEquals("npub1zutzeysacnf9rru6zqwmxd54mud0k44tst6l70ja5mhv8jjumytsd2x7nu", vm.npub.value)
+    }
+
+    @Test
+    fun uppercaseNcryptsecWithNostrPrefixLogsIn() = runBlocking {
+        val vm = newViewModel(RuntimeEnvironment.getApplication() as Application)
+        vm.updateNsecInput("nostr:" + officialNcryptsec.uppercase())
+        assertTrue(vm.logIn() == false) // pending, needs passphrase
+        assertNotNull(vm.pendingNcryptsec.value)
+        assertTrue(vm.completeNcryptsecLogin("nostr"))
+        assertEquals(SigningMode.LOCAL, vm.signingModeFlow.value)
+    }
+
+    @Test
+    fun hostileLogNcryptsecRejectedBeforePending() {
+        val vm = newViewModel(RuntimeEnvironment.getApplication() as Application)
+        val payload = Nip49.ncryptsecDecode(officialNcryptsec)
+        payload[1] = 24 // OOM/CPU DoS attempt
+        vm.updateNsecInput(Nip49.ncryptsecEncode(payload))
+        assertFalse(vm.logIn())
+        assertEquals(null, vm.pendingNcryptsec.value)
+        assertTrue(vm.error.value.orEmpty().contains("log_n"))
+    }
+
+    @Test
+    fun badChecksumNcryptsecRejectedBeforePending() {
+        val vm = newViewModel(RuntimeEnvironment.getApplication() as Application)
+        val broken = officialNcryptsec.dropLast(1) + if (officialNcryptsec.last() == 'p') 'q' else 'p'
+        vm.updateNsecInput(broken)
+        assertFalse(vm.logIn())
+        assertEquals(null, vm.pendingNcryptsec.value)
+    }
+
+    @Test
     fun ncryptsecWrongPassphraseKeepsPending() = runBlocking {
         val vm = newViewModel(RuntimeEnvironment.getApplication() as Application)
         vm.updateNsecInput(officialNcryptsec)

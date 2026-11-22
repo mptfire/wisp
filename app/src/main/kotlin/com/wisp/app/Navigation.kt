@@ -344,6 +344,11 @@ fun WispNavHost(
     val startDestination = rememberSaveable {
         when {
             !authViewModel.isLoggedIn -> Routes.SPLASH
+            // Process death during the mandatory backup step must not skip it:
+            // only mid-onboarding sessions with an unconfirmed backup resume
+            // there; fully onboarded users (flag predates this feature) go on.
+            !authViewModel.keyRepo.isOnboardingComplete() && !authViewModel.keyRepo.isKeyBackupConfirmed() ->
+                Routes.ONBOARDING_BACKUP_KEY
             !authViewModel.keyRepo.isOnboardingComplete() -> Routes.ONBOARDING_PROFILE
             else -> Routes.LOADING
         }
@@ -431,7 +436,7 @@ fun WispNavHost(
         if (!authViewModel.isLoggedIn) return@LaunchedEffect
         val currentDest = navController.currentDestination?.route
         // Only navigate directly if we're past the loading/auth screens
-        if (currentDest != null && currentDest !in setOf(Routes.LOADING, Routes.AUTH, Routes.SPLASH, Routes.ONBOARDING_PROFILE)) {
+        if (currentDest != null && currentDest !in setOf(Routes.LOADING, Routes.AUTH, Routes.SPLASH, Routes.ONBOARDING_PROFILE, Routes.ONBOARDING_BACKUP_KEY)) {
             onDeepLinkConsumed()
             navController.navigate(route)
         }
@@ -730,8 +735,8 @@ fun WispNavHost(
                     authViewModel.isAddingAccount = false
 
                     if (isNewAccount) {
-                        // New key generation always goes through full onboarding
-                        navController.navigate(Routes.ONBOARDING_PROFILE)
+                        // New key generation always goes through the backup step first
+                        navController.navigate(Routes.ONBOARDING_BACKUP_KEY)
                     } else if (wasAddingAccount && authViewModel.keyRepo.isOnboardingComplete()) {
                         // Adding an existing account that already completed onboarding — skip straight to loading
                         feedViewModel.reloadForNewAccount()

@@ -20,7 +20,8 @@ import java.text.Normalizer
  ******************************************************************/
 object Nip49 {
     const val VERSION: Int = 0x02
-    const val KEY_SECURITY_XCHACHA: Int = 0x02
+    /** 0x02 per spec = the client does not track the key's security handling. */
+    const val KEY_SECURITY_UNKNOWN: Int = 0x02
     const val MIN_LOG_N = 12
     const val MAX_LOG_N = 20
     const val DEFAULT_LOG_N = 16
@@ -37,19 +38,22 @@ object Nip49 {
         val salt = ByteArray(SALT_LEN).also { random.nextBytes(it) }
         val nonce = ByteArray(NONCE_LEN).also { random.nextBytes(it) }
         val pw = nfkcPassword(password)
-        val key = SCrypt.generate(pw, salt, 1 shl logN, 8, 1, 32)
-        pw.fill(0)
-        val ciphertext = xchacha20poly1305(key, nonce, privkey, byteArrayOf(KEY_SECURITY_XCHACHA.toByte()), true)
-        key.fill(0)
-        val out = ByteArray(PAYLOAD_LEN)
-        out[0] = VERSION.toByte()
-        out[1] = logN.toByte()
-        salt.copyInto(out, 2)
-        nonce.copyInto(out, 2 + SALT_LEN)
-        out[42] = KEY_SECURITY_XCHACHA.toByte()
-        ciphertext.copyInto(out, 43)
-        ciphertext.fill(0)
-        return out
+        var key = ByteArray(0)
+        try {
+            key = SCrypt.generate(pw, salt, 1 shl logN, 8, 1, 32)
+            val ciphertext = xchacha20poly1305(key, nonce, privkey, byteArrayOf(KEY_SECURITY_UNKNOWN.toByte()), true)
+            val out = ByteArray(PAYLOAD_LEN)
+            out[0] = VERSION.toByte()
+            out[1] = logN.toByte()
+            salt.copyInto(out, 2)
+            nonce.copyInto(out, 2 + SALT_LEN)
+            out[42] = KEY_SECURITY_UNKNOWN.toByte()
+            ciphertext.copyInto(out, 43)
+            return out
+        } finally {
+            pw.fill(0)
+            key.fill(0)
+        }
     }
 
     fun decryptPrivkey(payload: ByteArray, password: String): ByteArray {
@@ -66,15 +70,30 @@ object Nip49 {
         require(keySecurity in 0..2) { "unsupported key security byte $keySecurity" }
         val ciphertext = payload.copyOfRange(43, PAYLOAD_LEN)
         val pw = nfkcPassword(password)
-        val key = SCrypt.generate(pw, salt, 1 shl logN, 8, 1, 32)
-        pw.fill(0)
+        var key = ByteArray(0)
         try {
-            return xchacha20poly1305(key, nonce, ciphertext, byteArrayOf(keySecurity.toByte()), false)
-        } catch (e: Exception) {
-            throw IllegalArgumentException("wrong passphrase or corrupted ncryptsec payload", e)
+            key = SCrypt.generate(pw, salt, 1 shl logN, 8, 1, 32)
+            return try {
+                xchacha20poly1305(key, nonce, ciphertext, byteArrayOf(keySecurity.toByte()), false)
+            } catch (e: Exception) {
+                throw IllegalArgumentException("wrong passphrase or corrupted ncryptsec payload", e)
+            }
         } finally {
+            pw.fill(0)
             key.fill(0)
         }
+    }
+
+    /** Returns null when the payload is structurally valid, else the reason. */
+    fun validatePayload(payload: ByteArray): String? {
+        if (payload.size != PAYLOAD_LEN) return "invalid ncryptsec payload length ${payload.size} (expected $PAYLOAD_LEN)"
+        val version = payload[0].toInt() and 0xFF
+        if (version != VERSION) return "unsupported ncryptsec version $version"
+        val logN = payload[1].toInt() and 0xFF
+        if (logN !in MIN_LOG_N..MAX_LOG_N) return "log_n $logN out of allowed range $MIN_LOG_N..$MAX_LOG_N"
+        val keySecurity = payload[42].toInt() and 0xFF
+        if (keySecurity !in 0..2) return "unsupported key security byte $keySecurity"
+        return null
     }
 
     fun ncryptsecEncode(payload: ByteArray): String = Nip19.bech32Encode("ncryptsec", payload)

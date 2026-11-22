@@ -273,6 +273,20 @@ class KeyRepository(private val context: Context) {
         addAccount(pubkeyHex, SigningMode.READ_ONLY)
     }
 
+    /**
+     * Whether the current key has been backed up (or needs no backup, e.g.
+     * read-only). Global, not per-account: a fresh signup resets it, and the
+     * mandatory backup step on relaunch depends on it surviving process death.
+     */
+    fun setKeyBackupConfirmed(confirmed: Boolean) {
+        context.getSharedPreferences("wisp_onboarding_flags", Context.MODE_PRIVATE)
+            .edit().putBoolean("key_backup_confirmed", confirmed).apply()
+    }
+
+    fun isKeyBackupConfirmed(): Boolean =
+        context.getSharedPreferences("wisp_onboarding_flags", Context.MODE_PRIVATE)
+            .getBoolean("key_backup_confirmed", false)
+
     fun getSigningMode(): SigningMode {
         val mode = encPrefs.getString("signing_mode", null) ?: return SigningMode.LOCAL
         return try { SigningMode.valueOf(mode) } catch (_: Exception) { SigningMode.LOCAL }

@@ -12,6 +12,7 @@ import com.wisp.app.repo.AccountInfo
 import com.wisp.app.repo.FiatPreferences
 import com.wisp.app.repo.KeyRepository
 import com.wisp.app.repo.SigningMode
+import com.wisp.app.repo.SparkRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -55,6 +56,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         return try {
             val keypair = Keys.generate()
             keyRepo.saveKeypair(keypair)
+            keyRepo.setKeyBackupConfirmed(false)
             keyRepo.reloadPrefs(keypair.pubkey.toHex())
             _npub.value = Nip19.npubEncode(keypair.pubkey)
             _signingMode.value = SigningMode.LOCAL
@@ -78,13 +80,18 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             _error.value = "Please enter your key"
             return false
         }
+        // QR codes are often uppercase and may carry a nostr: prefix.
+        val stripped = if (input.length >= 6 && input.substring(0, 6).equals("nostr:", ignoreCase = true)) {
+            input.substring(6).trim()
+        } else input
+        val lowered = stripped.lowercase()
         return when {
-            input.startsWith("nsec1") -> loginWithNsec(input)
-            input.startsWith("npub1") -> loginWithNpub(input)
-            input.startsWith("nprofile1") -> loginWithNprofile(input)
-            input.startsWith("ncryptsec1") -> loginWithNcryptsec(input)
-            input.split(Regex("\\s+")).size >= 12 -> loginWithMnemonic(input)
-            input.length == 64 && input.all { it in '0'..'9' || it in 'a'..'f' } -> loginWithPubkeyHex(input)
+            lowered.startsWith("nsec1") -> loginWithNsec(lowered)
+            lowered.startsWith("npub1") -> loginWithNpub(lowered)
+            lowered.startsWith("nprofile1") -> loginWithNprofile(lowered)
+            lowered.startsWith("ncryptsec1") -> loginWithNcryptsec(lowered)
+            SparkRepository.normalizeMnemonic(stripped).split(Regex("\\s+")).size >= 12 -> loginWithMnemonic(stripped)
+            stripped.length == 64 && stripped.all { it in '0'..'9' || it in 'a'..'f' } -> loginWithPubkeyHex(stripped)
             else -> {
                 _error.value = "Invalid key format — enter an nsec, npub, recovery phrase, or ncryptsec backup"
                 false
@@ -97,6 +104,8 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             val privkey = Nip19.nsecDecode(nsec)
             val keypair = Keys.fromPrivkey(privkey)
             keyRepo.saveKeypair(keypair)
+            keyRepo.setKeyBackupConfirmed(true)
+            keypair.wipe()
             keyRepo.reloadPrefs(keypair.pubkey.toHex())
             _npub.value = Nip19.npubEncode(keypair.pubkey)
             _signingMode.value = SigningMode.LOCAL
@@ -109,10 +118,19 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** An ncryptsec login needs its passphrase first - stash the payload and ask. */
+    /** An ncryptsec login needs its passphrase first - validate, stash, and ask. */
     private fun loginWithNcryptsec(ncryptsec: String): Boolean {
+        val problem = try {
+            Nip49.validatePayload(Nip49.ncryptsecDecode(ncryptsec))
+        } catch (e: Exception) {
+            "Not a valid encrypted key backup: ${e.message}"
+        }
+        if (problem != null) {
+            _error.value = problem
+            return false
+        }
         _pendingNcryptsec.value = ncryptsec
-        _error.value = "Encrypted key backup detected - enter its passphrase to unlock"
+        _error.value = null
         return false
     }
 
@@ -127,7 +145,10 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         return try {
             val privkey = Nip49.decrypt(ncryptsec, passphrase)
             val keypair = Keys.fromPrivkey(privkey)
+            privkey.fill(0)
             keyRepo.saveKeypair(keypair)
+            keyRepo.setKeyBackupConfirmed(true)
+            keypair.wipe()
             keyRepo.reloadPrefs(keypair.pubkey.toHex())
             _npub.value = Nip19.npubEncode(keypair.pubkey)
             _signingMode.value = SigningMode.LOCAL
@@ -149,7 +170,10 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 return false
             }
             val keypair = Keys.fromPrivkey(privkey)
+            privkey.fill(0)
             keyRepo.saveKeypair(keypair)
+            keyRepo.setKeyBackupConfirmed(true)
+            keypair.wipe()
             keyRepo.reloadPrefs(keypair.pubkey.toHex())
             _npub.value = Nip19.npubEncode(keypair.pubkey)
             _signingMode.value = SigningMode.LOCAL
@@ -183,6 +207,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         return try {
             val profile = Nip19.nprofileDecode(nprofile)
             keyRepo.savePubkeyReadOnly(profile.pubkey)
+            keyRepo.setKeyBackupConfirmed(true)
             keyRepo.reloadPrefs(profile.pubkey)
             _npub.value = Nip19.npubEncode(profile.pubkey.hexToByteArray())
             _signingMode.value = SigningMode.READ_ONLY

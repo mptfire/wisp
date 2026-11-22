@@ -98,6 +98,22 @@ class Nip49Test {
     }
 
     @Test
+    fun rejectsTamperedKeySecurityAad() = runBlocking<Unit> {
+        // Byte 42 is the key security byte used as AEAD associated data -
+        // flipping it must fail the Poly1305 tag check.
+        val ncryptsec = Nip49.encrypt(ByteArray(32) { 5 }, "pw", logN = Nip49.MIN_LOG_N)
+        val payload = Nip49.ncryptsecDecode(ncryptsec)
+        payload[42] = ((payload[42].toInt() and 0xFF) xor 0x02).toByte()
+        val tampered = Nip49.ncryptsecEncode(payload)
+        try {
+            Nip49.decrypt(tampered, "pw")
+            throw AssertionError("expected tampered AAD to be rejected")
+        } catch (expected: IllegalArgumentException) {
+            assertTrue(expected.message!!.contains("wrong passphrase"))
+        }
+    }
+
+    @Test
     fun rejectsWrongBech32Hrp() = runBlocking<Unit> {
         val nsec = Nip19.nsecEncode(ByteArray(32))
         assertThrows(IllegalArgumentException::class.java) {

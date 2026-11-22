@@ -306,7 +306,10 @@ private fun PrivateKeySection(
         }
 
         if (showExportDialog) {
-            ExportNcryptsecDialog(keypair = keypair, onDismiss = { showExportDialog = false })
+            NcryptsecBackupDialog(
+                privkeyProvider = keypair?.let { k -> { k.privkey.copyOf() } },
+                onDismiss = { showExportDialog = false },
+            )
         }
     } else {
         Button(
@@ -572,90 +575,3 @@ private fun isPackageInstalled(context: android.content.Context, packageName: St
     } catch (_: Exception) {
         false
     }
-
-@Composable
-private fun ExportNcryptsecDialog(
-    keypair: com.wisp.app.nostr.Keys.Keypair?,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var passphrase by remember { mutableStateOf("") }
-    var confirm by remember { mutableStateOf("") }
-    var result by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Encrypted backup (ncryptsec)") },
-        text = {
-            Column {
-                if (result == null) {
-                    Text("Choose a passphrase. You will need it to restore this key on any device. It cannot be recovered if forgotten.")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = passphrase,
-                        onValueChange = { passphrase = it },
-                        label = { Text("Passphrase (min 8 characters)") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = confirm,
-                        onValueChange = { confirm = it },
-                        label = { Text("Confirm passphrase") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (error != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(error!!, color = MaterialTheme.colorScheme.error)
-                    }
-                } else {
-                    Text("Encrypted backup created. Store it anywhere - only this passphrase can unlock it.")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(result!!, style = MaterialTheme.typography.bodySmall, maxLines = 6)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(onClick = {
-                        val clip = ClipData.newPlainText("", result)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            clip.description.extras = PersistableBundle().apply {
-                                putBoolean("android.content.extra.IS_SENSITIVE", true)
-                            }
-                        }
-                        val cm = context.getSystemService(ClipboardManager::class.java)
-                        cm.setPrimaryClip(clip)
-                        Toast.makeText(context, "Encrypted backup copied", Toast.LENGTH_SHORT).show()
-                    }) { Text("Copy") }
-                }
-            }
-        },
-        confirmButton = {
-            if (result == null) {
-                Button(
-                    enabled = passphrase.length >= 8 && passphrase == confirm && keypair != null,
-                    onClick = {
-                        scope.launch {
-                            try {
-                                result = Nip49.encrypt(keypair!!.privkey, passphrase)
-                                error = null
-                            } catch (e: Exception) {
-                                error = "Could not create backup: " + (e.message ?: "unknown error")
-                            }
-                        }
-                    }
-                ) { Text("Create") }
-            } else {
-                Button(onClick = onDismiss) { Text("Done") }
-            }
-        },
-        dismissButton = {
-            if (result == null) {
-                OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-            }
-        }
-    )
-}

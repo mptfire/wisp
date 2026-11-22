@@ -15,12 +15,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.width
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.wisp.app.ui.component.NsecPasteGuard
@@ -197,11 +203,61 @@ fun AuthScreen(
         }
 
 
-        OutlinedTextField(
+        val pendingNcryptsec by viewModel.pendingNcryptsec.collectAsState()
+        val scope = rememberCoroutineScope()
+        var passphrase by remember { mutableStateOf("") }
+        var isUnlocking by remember { mutableStateOf(false) }
+
+        if (pendingNcryptsec != null) {
+            Text(
+                text = "This is an encrypted key backup. Enter its passphrase to unlock it.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = passphrase,
+                onValueChange = { passphrase = it },
+                label = { Text("Backup passphrase") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { passphrase = ""; viewModel.clearPendingNcryptsec() },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Back") }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (isUnlocking) return@Button
+                        isUnlocking = true
+                        scope.launch {
+                            val ok = viewModel.completeNcryptsecLogin(passphrase)
+                            isUnlocking = false
+                            if (ok) {
+                                passphrase = ""
+                                onAuthenticated(false)
+                            }
+                        }
+                    },
+                    enabled = passphrase.isNotBlank() && !isUnlocking,
+                    modifier = Modifier.weight(1f).height(48.dp)
+                ) {
+                    if (isUnlocking) {
+                        CircularProgressIndicator(modifier = Modifier.height(20.dp).width(20.dp), strokeWidth = 2.dp)
+                    } else Text("Unlock")
+                }
+            }
+        } else OutlinedTextField(
             value = nsecInput,
             onValueChange = { viewModel.updateNsecInput(it) },
-            label = { Text(stringResource(R.string.auth_nsec_or_npub)) },
-            singleLine = true,
+            label = { Text("nsec, npub, recovery phrase, or ncryptsec backup") },
+            singleLine = false,
+            maxLines = 3,
             visualTransformation = if (nsecVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             trailingIcon = {
