@@ -2,6 +2,7 @@ package com.wisp.app.nostr
 
 object Bolt11 {
     private val bech32Charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+    private val GEN = intArrayOf(0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3)
     private val hrpAmountRegex = Regex("""ln\w+?(\d+)([munp]?)$""")
     private val zapHrpAmountRegex = Regex("""lnbc(\d+)([munp]?)$""")
 
@@ -35,6 +36,11 @@ object Bolt11 {
             if (idx < 0) return null
             data5[i] = idx
         }
+
+        // Verify the bech32 checksum over hrp + data (BOLT-11 invoices are
+        // payment decisions downstream, so a corrupted or hand-mangled string
+        // must fail outright rather than decode to arbitrary fields).
+        if (!verifyChecksum(hrp, data5)) return null
 
         // Remove 6-char bech32 checksum from end
         val dataLen = data5.size - 6
@@ -101,6 +107,26 @@ object Bolt11 {
             expiry = expiry,
             timestamp = timestamp
         )
+    }
+
+    /**
+     * Standard bech32 checksum: polymod over the hrp expansion + data must
+     * equal 1. [hrp] must be lowercase (decode lowercases first).
+     */
+    private fun verifyChecksum(hrp: String, data5: IntArray): Boolean {
+        var chk = 1
+        fun step(v: Int) {
+            val b = chk shr 25
+            chk = ((chk and 0x1ffffff) shl 5) xor v
+            for (i in 0 until 5) {
+                if ((b shr i) and 1 == 1) chk = chk xor GEN[i]
+            }
+        }
+        for (c in hrp) step(c.code shr 5)
+        step(0)
+        for (c in hrp) step(c.code and 31)
+        for (v in data5) step(v)
+        return chk == 1
     }
 
     private fun parseHrpAmount(hrp: String): Long? {
