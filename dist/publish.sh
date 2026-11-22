@@ -13,7 +13,8 @@ gh release download "$TAG" --dir staging --clobber \
   --pattern "wisp-${VERSION}.apk" --pattern "SHA256SUMS"
 ( cd staging && sha256sum -c SHA256SUMS )
 APK="staging/wisp-${VERSION}.apk"
-APKSIGNER="$(ls "${ANDROID_HOME:-$HOME/Android/Sdk}"/build-tools/*/apksigner | sort -V | tail -1)"
+APKSIGNER="$(ls "${ANDROID_HOME:-$HOME/Android/Sdk:$HOME/android-sdk}"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)"
+test -n "$APKSIGNER" || { echo "apksigner not found under ANDROID_HOME, ~/Android/Sdk or ~/android-sdk" >&2; exit 1; }
 CERT_SHA256=3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a
 "$APKSIGNER" verify --print-certs "$APK" \
   | grep -q "certificate SHA-256 digest: $CERT_SHA256" \
@@ -25,16 +26,21 @@ echo "$BADGE" | grep -q "versionName='$VERSION'" || { echo "versionName mismatch
 HASH="$(sha256sum "$APK" | cut -d' ' -f1)"
 export HASH
 python3 - <<'PY'
-import json, os, re
+import json, os, re, sys
 h = os.environ['HASH']
 d = json.load(open('release.json'))
 d['sha256'] = h
 json.dump(d, open('release.json', 'w'), indent=2)
 open('release.json', 'a').write('\n')
 s = open('index.html').read()
-s = re.sub(r'id="sha256">[^<]*<', f'id="sha256">{h}<', s)
+s, n = re.subn(r'id="sha256">[^<]*<', f'id="sha256">{h}<', s)
+if n != 1:
+    sys.exit(f'expected exactly one id="sha256" occurrence in index.html, found {n}')
 open('index.html', 'w').write(s)
 PY
+# staging/ is the complete public bundle: page, metadata, notes, APK,
+# checksums — rsync --delete of staging/ must never remove the page.
+cp index.html release.json release-notes.md staging/
 echo "staged public files only:"
 ls staging
 echo "publish: rsync -av --delete staging/ user@host:/srv/wisp.rtard.de/download/"

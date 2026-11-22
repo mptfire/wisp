@@ -13,6 +13,12 @@ Security-focused fork release of Wisp, based on upstream `main` at
 - Carries all previously merged hardening: LNURL invoice verification,
   zap receipt consistency checks, SSRF guards on LNURL discovery, and
   bech32 checksum validation on BOLT-11 invoices.
+- Also lands the `fix/ssrf-and-media-hardening` stack: LNURL bodies
+  read correctly on chunked/HTTP-2 responses (zaps to Cloudflare-
+  fronted lightning providers were broken), redirect/callback SSRF
+  protection, DM media auto-fetch gated behind a setting (no zero-click
+  IP leak; 25 MB cap, SHA-256 verification, decompression-bomb guard),
+  Bolt11 HRP and expiry-tag guards, and crash-log secret redaction.
 
 ### Notes
 - Signed with the fork's own key: Android will not install it over the

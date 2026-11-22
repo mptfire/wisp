@@ -18,7 +18,6 @@
   source ~/.config/wisp-fork/signing.env
   gh secret set WISP_FORK_KEYSTORE_PASSWORD <<< "$WISP_FORK_KEYSTORE_PASSWORD"
   gh secret set WISP_FORK_KEY_ALIAS <<< "$WISP_FORK_KEY_ALIAS"
-  gh secret set WISP_FORK_KEY_PASSWORD <<< "$WISP_FORK_KEY_PASSWORD"
   gh secret set BREEZ_API_KEY <<< "<spark api key>"
   ```
 - Release: push tag `v1.3.0-fork.1` (must contain "fork" to match the
@@ -57,32 +56,43 @@
   path until this is decided.
 
 ## 5. Distribution hosting — DECISION
-- `dist/index.html` links to `https://wisp.rtard.de/download/…`; the
-  actual bytes can be served either by a static host (rsync, see
-  `dist/publish.sh`) or GitHub Release assets (workflow uploads them).
+- `dist/index.html` uses relative links (`./wisp-<version>.apk`,
+  `./SHA256SUMS`); `dist/publish.sh` assembles a complete staging/
+  bundle (page + metadata + notes + APK + checksums) from the canonical
+  GitHub Release asset for rsync to the static host.
   Whoever controls wisp.rtard.de DNS/hosting must confirm before the
   links go live; otherwise point the links at the GitHub release URL.
 
 ## 6. Zapstore
-- `zapstore.yaml` is a DRAFT: confirm field names against Zapstore's
-  current spec, register the release signing certificate with Zapstore,
-  and confirm the APK URL resolves. Do not submit before §3 and §5.
+- `docs/fork-release/zapstore.yaml.draft` is a placeholder, not a valid
+  manifest: Zapstore's zsp CLI expects fields like repository, pubkey,
+  name, summary, description, license, tags, release_filter, match.
+  Run `zsp init` to generate a real one, register the release signing
+  certificate, and confirm the APK URL resolves. Do not submit before
+  §3 and §5.
 
 ## 7. Pre-launch verification (local, already done once)
 - `apksigner verify --print-certs` → CN=Wisp Fork Release, cert SHA-256
   `3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a`.
 - versionCode 92, versionName 1.3.0-fork.1, applicationId com.wisp.app.
-- SHA-256 of the built APK recorded in `dist/release.json`.
+- `dist/release.json` `sha256` is null until `dist/publish.sh` fills it
+  from the canonical CI release artifact (the cert SHA-256 pin is the
+  durable trust anchor and stays hardcoded).
 - Still to do: install on a device/emulator, send/receive a DM, run a
   zap end-to-end once the API key decision is made.
 
 ## 8. Relation to upstream
 - Base: barrydeen/wisp `main` @ 09e26e0e (all merged security PRs).
-- Carries open PRs as commits: #675 (strict 2-file version Barry asked
-  for, cherry-pick of 8389f871) and the #690 mnemonic stack.
-- The cap/SSRF/checksum work already landed upstream via #687 — nothing
-  was dropped. If Barry merges #675/#690, the next fork tag can be cut
-  from plain `main`.
+- Carries unmerged work as commits: #675 (strict 2-file version Barry
+  asked for, cherry-pick of 8389f871), the #690 mnemonic stack, and the
+  `fix/ssrf-and-media-hardening` branch (LNURL chunked-body fix, SSRF
+  guards, DM media auto-fetch gating, Bolt11 hardening, crash redaction).
+- The cap/SSRF-guards/checksum work already landed upstream via #687 —
+  nothing was dropped.
+- barrydeen/wisp is ARCHIVED (read-only): open PRs #675/#690 cannot be
+  merged or closed upstream; every future fork tag must be cut from
+  this release lineage (rebase onto upstream only if it ever un-
+  archives or re-forks).
 - Keep the release branch `release/v1.3.0-fork.1` on
   github.com/mptfire/wisp so every published binary maps to public
   source.

@@ -36,8 +36,8 @@ object Nip04 {
     fun decrypt(content: String, sharedSecret: ByteArray): String {
         val parts = content.split("?iv=")
         require(parts.size == 2) { "Invalid NIP-04 content format" }
-        val ciphertext = Base64.getMimeDecoder().decode(parts[0])
-        val iv = Base64.getMimeDecoder().decode(parts[1])
+        val ciphertext = Base64.getDecoder().decode(parts[0].filterNot { it.isWhitespace() })
+        val iv = Base64.getDecoder().decode(parts[1].filterNot { it.isWhitespace() })
         return decryptRaw(ciphertext, iv, sharedSecret)
     }
 

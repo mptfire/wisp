@@ -60,7 +60,7 @@ object Nip44 {
      * Input: base64-encoded payload.
      */
     fun decrypt(payload: String, conversationKey: ByteArray): String {
-        val data = Base64.getMimeDecoder().decode(payload)
+        val data = Base64.getDecoder().decode(payload.filterNot { it.isWhitespace() })
         require(data.size >= 99) { "Payload too short" } // 1 + 32 + 32(min padded) + 2(len prefix) + 32
 
         val version = data[0]

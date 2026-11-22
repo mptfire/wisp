@@ -9,6 +9,41 @@ plugins {
     alias(libs.plugins.objectbox)
 }
 
+// Fork BREEZ_API_KEY: env first, then local.properties. Only Release-variant
+// tasks are gated on it (see taskGraph.whenReady below) so debug builds,
+// testDebugUnitTest and lint run without a key.
+val breezApiKey = System.getenv("BREEZ_API_KEY")?.trim()
+    ?.takeIf { it.isNotEmpty() }
+    ?: run {
+        val localProps = rootProject.file("local.properties")
+        if (localProps.exists()) {
+            val props = Properties()
+            localProps.inputStream().use { props.load(it) }
+            props.getProperty("breez.api.key", "")?.trim() ?: ""
+        } else ""
+    }
+// Escape for the generated BuildConfig string literal.
+val breezApiKeyLiteral = breezApiKey
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+val allowEmptyBreezKey =
+    providers.gradleProperty("allowEmptyBreezApiKey").getOrElse("false") == "true"
+
+// Release-only gate: building the Release variant without a key fails fast.
+gradle.taskGraph.whenReady {
+    val needsKey = allTasks.any {
+        it.name.contains("Release", ignoreCase = true) &&
+            !it.name.contains("UnitTest", ignoreCase = true)
+    }
+    if (needsKey && breezApiKey.isEmpty() && !allowEmptyBreezKey) {
+        throw GradleException(
+            "BREEZ_API_KEY is empty - the Release wallet would ship non-functional. " +
+                "Set env BREEZ_API_KEY or breez.api.key in local.properties, or pass " +
+                "-PallowEmptyBreezApiKey=true to build knowingly without a wallet."
+        )
+    }
+}
+
 android {
     val baseApplicationId = rootProject.extra["baseApplicationId"] as String
     val debugApplicationIdSuffix = rootProject.extra["debugApplicationIdSuffix"] as String
@@ -29,30 +64,11 @@ android {
             abiFilters += "arm64-v8a"
         }
 
-        val localProps = rootProject.file("local.properties")
-        val breezApiKey = System.getenv("BREEZ_API_KEY")?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?: if (localProps.exists()) {
-                val props = Properties()
-                localProps.inputStream().use { props.load(it) }
-                props.getProperty("breez.api.key", "")?.trim() ?: ""
-            } else ""
-        val allowEmptyBreezKey =
-            providers.gradleProperty("allowEmptyBreezApiKey").getOrElse("false") == "true"
-        if (breezApiKey.isEmpty() && !allowEmptyBreezKey) {
-            throw GradleException(
-                "BREEZ_API_KEY is empty - the Lightning wallet would ship non-functional. " +
-                    "Set env BREEZ_API_KEY or breez.api.key in local.properties, or pass " +
-                    "-PallowEmptyBreezApiKey=true to build knowingly without a wallet."
-            )
-        }
-        // Escape for the generated BuildConfig string literal.
-        val breezApiKeyLiteral = breezApiKey
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
         buildConfigField("String", "BREEZ_API_KEY", "\"$breezApiKeyLiteral\"")
         buildConfigField("String", "BREEZ_SDK_VERSION", "\"${libs.versions.breez.sdk.spark.get()}\"")
     }
+
+    var hasForkSigning = false
 
     signingConfigs {
         // Fork release signing. The keystore never lives in the repo or CI logs;
@@ -64,7 +80,8 @@ android {
             val ksPass = System.getenv("WISP_FORK_KEYSTORE_PASSWORD")?.trim()
             val keyAliasName = System.getenv("WISP_FORK_KEY_ALIAS")?.trim()
             // PKCS12 encrypts keys with the store password; default to it.
-            val keyPass = System.getenv("WISP_FORK_KEY_PASSWORD")?.trim() ?: ksPass
+            val keyPass = System.getenv("WISP_FORK_KEY_PASSWORD")
+                ?.trim()?.takeIf { it.isNotEmpty() } ?: ksPass
             val provided = listOf(ksPath, ksPass, keyAliasName, keyPass)
                 .count { !it.isNullOrBlank() }
             when (provided) {
@@ -77,6 +94,7 @@ android {
                     this.keyAlias = keyAliasName
                     this.keyPassword = keyPass
                     enableV3Signing = true
+                    hasForkSigning = true
                 }
                 else -> throw GradleException(
                     "Partial fork signing configuration: set ALL of WISP_FORK_KEYSTORE, " +
@@ -97,7 +115,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (System.getenv("WISP_FORK_KEYSTORE") != null) {
+            if (hasForkSigning) {
                 signingConfig = signingConfigs.getByName("forkRelease")
             }
         }

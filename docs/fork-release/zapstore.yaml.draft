@@ -1,6 +1,7 @@
-# Zapstore manifest for the Wisp fork release.
-# NOTE: field names follow the Zapstore yaml convention; run them against
-# Zapstore's current spec before submission (see LAUNCH-CHECKLIST.md §6).
+# DRAFT ONLY — not a valid Zapstore manifest. The fields below follow an
+# invented schema; Zapstore's zsp CLI expects repository, pubkey (npub),
+# name, summary, description, license, tags, release_filter, match.
+# Replace this file with `zsp init` output before any submission.
 name: Wisp
 short-description: Private Nostr DMs, zaps, and a self-custodial Lightning wallet
 author: mptfire
