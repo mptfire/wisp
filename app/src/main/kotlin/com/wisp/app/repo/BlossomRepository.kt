@@ -85,11 +85,23 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
         signer: NostrSigner? = null
     ): String = withContext(Dispatchers.IO) {
         val sha256Hex = Blossom.sha256Hex(fileBytes)
-        val authHeader = if (signer != null) {
-            Blossom.createUploadAuth(signer, sha256Hex)
+        val mediaAuthHeader = if (signer != null) {
+            Blossom.createMediaAuth(signer, sha256Hex)
         } else {
             val keypair = keyRepo.getKeypair() ?: throw IllegalStateException("Not logged in")
-            Blossom.createUploadAuth(keypair.privkey, keypair.pubkey, sha256Hex)
+            Blossom.createMediaAuth(keypair.privkey, keypair.pubkey, sha256Hex)
+        }
+        var uploadAuthHeader: String? = null
+        suspend fun getUploadAuthHeader(): String {
+            uploadAuthHeader?.let { return it }
+            val header = if (signer != null) {
+                Blossom.createUploadAuth(signer, sha256Hex)
+            } else {
+                val keypair = keyRepo.getKeypair() ?: throw IllegalStateException("Not logged in")
+                Blossom.createUploadAuth(keypair.privkey, keypair.pubkey, sha256Hex)
+            }
+            uploadAuthHeader = header
+            return header
         }
         val mediaType = mimeType.toMediaType()
         val body = fileBytes.toRequestBody(mediaType)
@@ -106,7 +118,9 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
         var lastException: Exception? = null
         for (server in candidates) {
             try {
-                return@withContext uploadToServer(server, body, authHeader, mimeType, sha256Hex)
+                return@withContext uploadToServer(
+                    server, body, mediaAuthHeader, mimeType, sha256Hex, ::getUploadAuthHeader
+                )
             } catch (e: Exception) {
                 lastException = e
             }
@@ -116,34 +130,57 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
 
     /**
      * Returns the served HTTPS URL after verifying the server's descriptor.
-     * On `/upload` (verbatim storage), the descriptor MUST include a `sha256`
-     * matching [expectedSha256Hex] (fail-closed against omitted or tampered
-     * hashes). On `/media` (BUD-05 may transcode/strip EXIF), only HTTPS URL
-     * validation is enforced.
+     * BUD-05 `/media` uses `t=media` auth; if unsupported (404/405/501), falls
+     * back to BUD-02 `/upload` with its own `t=upload` auth and verifies that
+     * the descriptor's `sha256` matches [expectedSha256Hex] (fail-closed).
      */
-    private fun uploadToServer(
+    private suspend fun uploadToServer(
         server: String,
+        body: okhttp3.RequestBody,
+        mediaAuthHeader: String,
+        mimeType: String,
+        expectedSha256Hex: String,
+        getUploadAuthHeader: suspend () -> String
+    ): String {
+        val mediaUrl = server.trimEnd('/') + "/media"
+        val mediaResult = uploadToEndpoint(
+            url = mediaUrl,
+            body = body,
+            authHeader = mediaAuthHeader,
+            mimeType = mimeType,
+            expectedSha256Hex = null,
+            unsupportedStatusCodes = setOf(404, 405, 501)
+        )
+        if (mediaResult != null) return mediaResult
+
+        val uploadUrl = server.trimEnd('/') + "/upload"
+        return uploadToEndpoint(
+            url = uploadUrl,
+            body = body,
+            authHeader = getUploadAuthHeader(),
+            mimeType = mimeType,
+            expectedSha256Hex = expectedSha256Hex
+        ) ?: throw Exception("Upload failed: unsupported /upload endpoint")
+    }
+
+    private fun uploadToEndpoint(
+        url: String,
         body: okhttp3.RequestBody,
         authHeader: String,
         mimeType: String,
-        expectedSha256Hex: String
-    ): String {
-        // Try BUD-05 /media first (strips EXIF), fall back to /upload on 404
-        for (path in listOf("/media", "/upload")) {
-            val url = server.trimEnd('/') + path
-            val request = Request.Builder()
-                .url(url)
-                .put(body)
-                .header("Authorization", authHeader)
-                .header("Content-Type", mimeType)
-                .build()
+        expectedSha256Hex: String?,
+        unsupportedStatusCodes: Set<Int> = emptySet()
+    ): String? {
+        val request = Request.Builder()
+            .url(url)
+            .put(body)
+            .header("Authorization", authHeader)
+            .header("Content-Type", mimeType)
+            .build()
 
-            // try/finally instead of Closeable.use: non-local break/continue in
-            // inline lambdas is restricted (Kotlin 2.x), and the /media 404
-            // fall-through needs loop control here.
-            val response = httpClient.newCall(request).execute()
-            try {
-                if (response.isSuccessful) {
+        return httpClient.newCall(request).execute().use { response ->
+            when {
+                response.isSuccessful -> {
                     val responseBody = SafeHttp.readUtf8Capped(response.body, SafeHttp.DEFAULT_MAX_JSON_BYTES)
                         ?: throw Exception("Empty or oversized response")
                     val root = json.parseToJsonElement(responseBody) as? kotlinx.serialization.json.JsonObject
@@ -154,7 +191,7 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
                     if (!urlField.startsWith("https://", ignoreCase = true)) {
                         throw Exception("Blossom returned non-HTTPS URL")
                     }
-                    if (path == "/upload") {
+                    if (expectedSha256Hex != null) {
                         val serverSha256 = root["sha256"]
                             ?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
                             ?.lowercase()?.trim()
@@ -162,15 +199,12 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
                             throw Exception("Blossom sha256 missing or mismatch")
                         }
                     }
-                    return urlField
+                    urlField
                 }
-                if (response.code == 404 && path == "/media") continue
-                throw Exception("Upload failed: ${response.code} ${response.message}")
-            } finally {
-                response.close()
+                response.code in unsupportedStatusCodes -> null
+                else -> throw Exception("Upload failed: ${response.code} ${response.message}")
             }
         }
-        throw Exception("Upload failed")
     }
 
     data class EncryptedUploadResult(

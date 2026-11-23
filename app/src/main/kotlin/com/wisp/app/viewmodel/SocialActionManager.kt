@@ -203,6 +203,7 @@ class SocialActionManager(
     }
 
     fun updateMutedWords() {
+        eventRepo.purgeMutedWords()
         publishMuteList()
     }
 

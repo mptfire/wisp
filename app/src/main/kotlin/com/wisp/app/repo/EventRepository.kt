@@ -507,7 +507,7 @@ class EventRepository(val profileRepo: ProfileRepository? = null, val muteRepo: 
         if (!seenEventIds.add(event.id)) return  // atomic dedup across all relay threads
         if (event.created_at > System.currentTimeMillis() / 1000 + 30) return  // reject future-dated notes (30s grace for clock skew)
         if (muteRepo?.isBlocked(event.pubkey) == true) return
-        if ((event.kind == 1 || event.kind == Nip22.KIND_COMMENT || event.kind == 30023 || event.kind == 20 || event.kind == 21 || event.kind == 22 || event.kind == Nip69.KIND_ZAP_POLL) && muteRepo?.containsMutedWord(event.content) == true) return
+        if ((event.kind == 1 || event.kind == Nip22.KIND_COMMENT || event.kind == 30023 || event.kind == 20 || event.kind == 21 || event.kind == 22 || event.kind == Nip69.KIND_ZAP_POLL) && muteRepo?.isEventMuted(event) == true) return
         if (event.kind == 1 || event.kind == Nip22.KIND_COMMENT) {
             // NIP-22 replies-to-comments reference the thread root only via
             // uppercase E scope — prefer it over the lowercase-e parent.
@@ -568,7 +568,7 @@ class EventRepository(val profileRepo: ProfileRepository? = null, val muteRepo: 
                     try {
                         val inner = fromJson(event.content)
                         if (muteRepo?.isBlocked(inner.pubkey) == true) return
-                        if (muteRepo?.containsMutedWord(inner.content) == true) return
+                        if (muteRepo?.isEventMuted(inner) == true) return
                         if (isWotFiltered(event.pubkey, 6) && isWotFiltered(inner.pubkey, 1)) return
                         val authors = repostAuthors.get(inner.id)
                             ?: ConcurrentHashMap.newKeySet<String>().also { repostAuthors.put(inner.id, it) }
@@ -1684,6 +1684,7 @@ class EventRepository(val profileRepo: ProfileRepository? = null, val muteRepo: 
             if (event.kind != 1 && event.kind != 20 && event.kind != 21 && event.kind != 22 && event.kind != 1068 && event.kind != 6969 && event.kind != 30023) continue
             if (event.created_at < sinceTimestamp) continue
             if (event.created_at > System.currentTimeMillis() / 1000 + 30) continue  // skip future-dated (scheduled) notes
+            if (muteRepo?.isEventMuted(event) == true) continue
             if (muteRepo?.isBlocked(event.pubkey) == true) continue
             if (deletedEventsRepo?.isDeleted(event.id) == true) continue
             if (isWotFiltered(event.pubkey, event.kind)) continue
@@ -1710,6 +1711,34 @@ class EventRepository(val profileRepo: ProfileRepository? = null, val muteRepo: 
                 if (root == rootEventId) {
                     removed.add(e.id)
                     iter.remove()
+                }
+            }
+            if (removed.isNotEmpty()) {
+                val removedSet = removed.toSet()
+                feedIds.removeAll(removedSet)
+                filteredFeedIds.removeAll(removedSet)
+                filteredFeed.removeAll { it.id in removedSet }
+            }
+        }
+        if (removed.isNotEmpty()) feedInserted.trySend(Unit)
+    }
+
+    /**
+     * Drop events from the current feed that now match a muted word/hashtag —
+     * e.g. after the user adds one in Safety settings.
+     */
+    fun purgeMutedWords() {
+        val repo = muteRepo ?: return
+        val removed = mutableListOf<String>()
+        synchronized(feedList) {
+            val iter = feedList.iterator()
+            while (iter.hasNext()) {
+                val e = iter.next()
+                if (e.kind == 1 || e.kind == Nip22.KIND_COMMENT || e.kind == 30023 || e.kind == 20 || e.kind == 21 || e.kind == 22 || e.kind == Nip69.KIND_ZAP_POLL) {
+                    if (repo.isEventMuted(e)) {
+                        removed.add(e.id)
+                        iter.remove()
+                    }
                 }
             }
             if (removed.isNotEmpty()) {
@@ -1760,7 +1789,7 @@ class EventRepository(val profileRepo: ProfileRepository? = null, val muteRepo: 
                     try {
                         val inner = NostrEvent.fromJson(event.content)
                         if (muteRepo?.isBlocked(inner.pubkey) == true) return
-                        if (muteRepo?.containsMutedWord(inner.content) == true) return
+                        if (muteRepo?.isEventMuted(inner) == true) return
                         // Track repost metadata for badges
                         val authors = repostAuthors.get(inner.id)
                             ?: ConcurrentHashMap.newKeySet<String>().also { repostAuthors.put(inner.id, it) }
@@ -1819,7 +1848,7 @@ class EventRepository(val profileRepo: ProfileRepository? = null, val muteRepo: 
                     try {
                         val inner = NostrEvent.fromJson(event.content)
                         if (muteRepo?.isBlocked(inner.pubkey) == true) return
-                        if (muteRepo?.containsMutedWord(inner.content) == true) return
+                        if (muteRepo?.isEventMuted(inner) == true) return
                         val authors = repostAuthors.get(inner.id)
                             ?: ConcurrentHashMap.newKeySet<String>().also { repostAuthors.put(inner.id, it) }
                         authors.add(event.pubkey)
