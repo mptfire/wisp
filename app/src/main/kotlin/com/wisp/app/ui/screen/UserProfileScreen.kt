@@ -86,6 +86,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -550,6 +551,40 @@ fun UserProfileScreen(
         }
 
         val listState = rememberLazyListState()
+        var pendingRepostScrollRestore by remember {
+            mutableStateOf<Triple<String, Int, Int>?>(null)
+        }
+        val handleProfileRepost: (NostrEvent) -> Unit = { repostedEvent ->
+            if (isOwnProfile && selectedTabId == 0 && notesSortMode == ProfileSortMode.RECENCY) {
+                pendingRepostScrollRestore = Triple(
+                    repostedEvent.id,
+                    listState.firstVisibleItemIndex,
+                    listState.firstVisibleItemScrollOffset
+                )
+            }
+            onRepost(repostedEvent)
+        }
+        LaunchedEffect(rootNotes, pendingRepostScrollRestore, selectedTabId, notesSortMode) {
+            val pending = pendingRepostScrollRestore ?: return@LaunchedEffect
+            if (isOwnProfile &&
+                selectedTabId == 0 &&
+                notesSortMode == ProfileSortMode.RECENCY &&
+                rootNotes.firstOrNull()?.id == pending.first
+            ) {
+                withFrameNanos { }
+                val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                listState.scrollToItem(
+                    pending.second.coerceAtMost(lastIndex),
+                    pending.third
+                )
+                pendingRepostScrollRestore = null
+            }
+        }
+        LaunchedEffect(pendingRepostScrollRestore) {
+            val pending = pendingRepostScrollRestore ?: return@LaunchedEffect
+            delay(5_000)
+            if (pendingRepostScrollRestore == pending) pendingRepostScrollRestore = null
+        }
 
         // Auto-load more when scrolling near the bottom of the notes/replies/media feeds
         val autoPaginates = selectedTabId == 0 || selectedTabId == 1 ||
@@ -913,7 +948,7 @@ fun UserProfileScreen(
                                 onNoteClick = { onNoteClick(event) },
                                 onQuotedNoteClick = onQuotedNoteClick,
                                 onReact = { emoji -> onReact(event, emoji) },
-                                onRepost = { onRepost(event) },
+                                onRepost = { handleProfileRepost(event) },
                                 onQuote = { onQuote(event) },
                                 userReactionEmojis = userEmojis,
                                 hasUserReposted = hasUserReposted,
