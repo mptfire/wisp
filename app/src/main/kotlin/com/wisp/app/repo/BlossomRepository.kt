@@ -113,7 +113,7 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
                 "https://blossom.band"
             } else url
         }
-        val candidates = (serverList + Blossom.DEFAULT_SERVER).distinct()
+        val candidates = (serverList + Blossom.DEFAULT_SERVER + Blossom.FALLBACK_SERVER).distinct()
 
         var lastException: Exception? = null
         for (server in candidates) {
@@ -240,7 +240,7 @@ class BlossomRepository(private val context: Context, pubkeyHex: String? = null)
                 "https://blossom.band"
             } else url
         }
-        val candidates = (serverList + Blossom.DEFAULT_SERVER).distinct()
+        val candidates = (serverList + Blossom.DEFAULT_SERVER + Blossom.FALLBACK_SERVER).distinct()
 
         var lastException: Exception? = null
         for (server in candidates) {

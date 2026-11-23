@@ -7,7 +7,8 @@ import java.util.Base64
 object Blossom {
     const val KIND_SERVER_LIST = 10063
     const val KIND_AUTH = 24242
-    const val DEFAULT_SERVER = "https://blossom.primal.net"
+    const val DEFAULT_SERVER = "https://firewisp.blossom.rtard.de"
+    const val FALLBACK_SERVER = "https://blossom.primal.net"
 
     /**
      * Extract Blossom server URLs from the events tags and returns them as a list.

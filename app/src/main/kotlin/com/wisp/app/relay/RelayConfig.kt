@@ -19,6 +19,7 @@ data class RelayConfig(
 ) {
     companion object {
         val DEFAULTS = listOf(
+            RelayConfig("wss://firewisp.relay.rtard.de", read = true, write = true),
             RelayConfig("wss://relay.damus.io", read = true, write = true),
             RelayConfig("wss://relay.primal.net", read = true, write = true),
             RelayConfig("wss://indexer.coracle.social", read = true, write = false),

@@ -36,6 +36,14 @@ hardening and UX ports:
   receipt consistency checks, DM media auto-fetch gated behind a setting (no
   zero-click IP leak; 25 MB cap, SHA-256 verification, decompression-bomb
   guard), and crash-log secret redaction.
+- **Dedicated Fire Wisp relay & Blossom media server (built-in defaults)**:
+  - Prepends `wss://firewisp.relay.rtard.de` to default relays (anti-spam
+    `strfry` relay with NIP-13 PoW >= 12 bits on public posts/reactions, kind
+    allowlist, mention caps, and per-pubkey rate limits).
+  - Sets `https://firewisp.blossom.rtard.de` as default Blossom upload server
+    with automatic fallback to `https://blossom.primal.net` (BUD-11 auth
+    required, 10 MB cap, EXIF/metadata stripped, mirroring disabled, automatic
+    blob expiry).
 - **Dark Wisp UX & protocol ports**:
   - Undo reposts + NIP-09 author-verified deletion + profile scroll stability
     (`#106`).
