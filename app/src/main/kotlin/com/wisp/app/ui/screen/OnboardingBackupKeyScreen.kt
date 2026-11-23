@@ -73,7 +73,7 @@ fun OnboardingBackupKeyScreen(
         Spacer(Modifier.height(8.dp))
         Text(
             text = "This secret key is both your Nostr account and your built-in Lightning wallet. " +
-                "If you lose it, nobody can recover your account — not even Wisp Fork. Save it somewhere safe now.",
+                "If you lose it, nobody can recover your account — not even Fire Wisp. Save it somewhere safe now.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

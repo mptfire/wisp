@@ -1,9 +1,9 @@
 {
-  "name": "Wisp fork",
+  "name": "Fire Wisp",
   "version": "1.3.0-fork.1",
   "versionCode": 92,
   "applicationId": "de.rtard.wisp",
-  "label": "Wisp Fork",
+  "label": "Fire Wisp",
   "abi": [
     "arm64-v8a"
   ],

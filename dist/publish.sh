@@ -67,7 +67,7 @@ echo "label: $("$AAPT2" dump badging "$APK" | grep "^application-label:" | head 
 HASH="$(sha256sum "$APK" | cut -d' ' -f1)"
 export HASH
 # page bundle first, then patch the verified hash into STAGING copies
-cp index.html release.json release-notes.md staging/
+cp index.html release.json release-notes.md firewisp-logo.png staging/
 python3 - <<'PY'
 import json, os, re, sys
 h = os.environ["HASH"]
@@ -88,6 +88,6 @@ echo "staged public files:"
 ls staging
 echo
 echo "deploy targets (webroot layout, Caddy/nginx):"
-echo "  staging first : rsync -av --delete staging/ user@vps:/srv/staging.wisp.rtard.de/"
-echo "  prod (tagged) : rsync -av --delete staging/ user@vps:/srv/wisp.rtard.de/"
-echo "live verify: curl -fsSLI https://staging.wisp.rtard.de/wisp-${VERSION}.apk | grep -iE 'content-type|content-disposition|strict-transport'"
+echo "  staging first : rsync -av --delete staging/ user@vps:/srv/staging.firewisp.rtard.de/"
+echo "  prod (tagged) : rsync -av --delete staging/ user@vps:/srv/firewisp.rtard.de/"
+echo "live verify: curl -fsSLI https://staging.firewisp.rtard.de/wisp-${VERSION}.apk | grep -iE 'content-type|content-disposition|strict-transport'"

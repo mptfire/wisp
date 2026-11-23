@@ -65,7 +65,7 @@
     <string name="online_now">Online Now</string>
     <string name="online_in_network">%d online in your network</string>
     <string name="online_all_nostr">%d online across all of Nostr</string>
-    <string name="cd_wisp_logo">Wisp logo</string>
+    <string name="cd_wisp_logo">Fire Wisp logo</string>
 
     <!-- Auth Screen -->
     <string name="auth_sign_up">Sign Up</string>
@@ -73,7 +73,7 @@
     <string name="auth_login_with_signer">Sign in with Amber / Signer</string>
     <string name="auth_or_log_in_with_key">Or log in with your key</string>
     <string name="auth_nsec_or_npub">nsec or npub…</string>
-    <string name="auth_wisp">wisp</string>
+    <string name="auth_wisp">fire wisp</string>
     <string name="auth_tagline">a wee interface to scroll posts</string>
     <string name="auth_hide_key">Hide key</string>
     <string name="auth_show_key">Show key</string>
@@ -465,7 +465,7 @@
     <string name="onboarding_please_wait">Please wait…</string>
     <string name="onboarding_publishing">Publishing…</string>
     <string name="onboarding_creating_account">Creating account…</string>
-    <string name="onboarding_wisp_logo">Wisp logo</string>
+    <string name="onboarding_wisp_logo">Fire Wisp logo</string>
     <string name="onboarding_follow_all_x">Follow All (%d)</string>
 
     <!-- Zap / Wallet -->
@@ -547,8 +547,8 @@
     <string name="settings_hide_live_streams">Hide live streams</string>
     <string name="settings_hide_live_streams_description">Hide the live streams row from the top of your feed</string>
     <string name="settings_client_tag">Client Tag</string>
-    <string name="settings_tag_notes">Tag notes with Wisp</string>
-    <string name="settings_tag_notes_description">Include a tag identifying Wisp as the client. This is visible to others.</string>
+    <string name="settings_tag_notes">Tag notes with Fire Wisp</string>
+    <string name="settings_tag_notes_description">Include a tag identifying Fire Wisp as the client. This is visible to others.</string>
     <string name="settings_posting">Posting</string>
     <string name="settings_undo_countdown">Undo countdown</string>
     <string name="settings_undo_countdown_description">Holds new posts for a few seconds before publishing so you can cancel.</string>

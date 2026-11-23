@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wisp fork — download</title>
+<title>Fire Wisp — download</title>
+<link rel="icon" type="image/png" href="./firewisp-logo.png">
 <style>
   :root { color-scheme: dark; }
   body {
@@ -12,18 +13,20 @@
     display: flex; justify-content: center;
   }
   main { max-width: 42rem; }
-  h1 { font-size: 1.9rem; margin: 0 0 .25rem; }
-  .sub { color: #98a2b3; margin-bottom: 2rem; }
+  .hero { display: flex; align-items: center; gap: 1rem; margin-bottom: .5rem; }
+  .hero img { width: 64px; height: 64px; border-radius: 14px; }
+  h1 { font-size: 1.9rem; margin: 0; }
+  .sub { color: #98a2b3; margin: 0 0 2rem; }
   .card {
     background: #161b24; border: 1px solid #2a3242; border-radius: 12px;
     padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
   }
   .card h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
   a.btn {
-    display: inline-block; background: #7c5cff; color: #fff; text-decoration: none;
+    display: inline-block; background: #e8590c; color: #fff; text-decoration: none;
     padding: .6rem 1.2rem; border-radius: 8px; font-weight: 600;
   }
-  a.btn:hover { background: #6a4be0; }
+  a.btn:hover { background: #d9480f; }
   code, .mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: .85em; color: #c3cbdb; word-break: break-all;
@@ -39,14 +42,19 @@
 </head>
 <body>
 <main>
-  <h1>Wisp fork</h1>
-  <p class="sub">Community-maintained build of the Wisp Nostr client
-  (native Android, self-custodial Lightning wallet via the Spark SDK).</p>
+  <div class="hero">
+    <img src="./firewisp-logo.png" alt="Fire Wisp logo">
+    <div>
+      <h1>Fire Wisp</h1>
+      <p class="sub" style="margin:0">Community-maintained, privacy-hardened Android Nostr client with built-in Tor and self-custodial Lightning wallet.</p>
+    </div>
+  </div>
+  <p class="sub"></p>
 
   <div class="card">
     <h2>Latest release — <span class="mono">1.3.0-fork.1</span> (versionCode 92)</h2>
     <p><a class="btn" id="download" href="./wisp-1.3.0-fork.1.apk">Download APK</a></p>
-    <p style="color:#98a2b3">arm64-v8a · Android 8.0+ · ~104 MB</p>
+    <p style="color:#98a2b3">arm64-v8a · Android 8.0+ · ~55 MB</p>
     <dl>
       <dt>SHA-256 of the APK</dt>
       <dd class="mono" id="sha256">see SHA256SUMS in the published bundle</dd>
@@ -60,35 +68,38 @@
   <div class="card warn">
     <h2>Before you install</h2>
     <ul>
-      <li>Installs side-by-side with upstream Wisp: this fork uses its own
+      <li>Installs side-by-side with upstream Wisp: Fire Wisp uses its own
         package ID (<span class="mono">de.rtard.wisp</span>, launcher name
-        "Wisp Fork"), so both can stay installed. Restore and verify your
-        recovery phrase / nsec inside Wisp Fork before uninstalling the
+        "Fire Wisp"), so both can stay installed. Restore and verify your
+        recovery phrase / key inside Fire Wisp before uninstalling the
         upstream app.</li>
       <li>Verify the APK checksum against <span class="mono">SHA256SUMS</span>,
         or check the signing certificate fingerprint above in your installer.</li>
-      <li>This is an independent fork build. It is not published or endorsed by
-        the upstream author.</li>
+      <li>Fire Wisp is an independent fork of Wisp. It is not published or
+        endorsed by the upstream author.</li>
     </ul>
   </div>
 
   <div class="card">
-    <h2>What changed in this fork</h2>
+    <h2>What's new in Fire Wisp</h2>
     <ul>
       <li><strong>No Google sign-in — sign in your way:</strong> Removed "Continue with Google"
         and Google Drive backup. Sign in with an external signer app (Amber), a password-protected
         key backup, a 12- or 24-word recovery phrase, or your Nostr key directly.</li>
+      <li><strong>Built-in Tor privacy mode:</strong> One-tap Tor toggle right on the sign-in
+        screen and navigation drawer — routes relays, media, and lookups over Tor with zero
+        background leaks while connecting.</li>
       <li><strong>Guided key backup on signup:</strong> New accounts walk you through saving or
         exporting a password-protected backup of your secret key before you start, so you never
         get locked out of your account or wallet.</li>
       <li><strong>Stronger private messages:</strong> Blocks spoofed DMs and stops
         automatic media downloads in DMs so strangers can't see your IP address.</li>
-      <li><strong>Reliable, safer zaps:</strong> Fixed zaps failing with popular
-        Lightning providers and verifies invoices before your wallet pays them.</li>
-      <li><strong>Safer wallet recovery:</strong> Catches typos and weird copy-paste
-        spaces in recovery phrases instead of letting invalid ones slip through.</li>
-      <li><strong>Private crash reports:</strong> Strips keys and wallet secrets
-        from crash logs automatically.</li>
+      <li><strong>Reliable, safer zaps &amp; wallet recovery:</strong> Fixed zaps failing with
+        popular Lightning providers, verifies invoices before paying, and catches typos or weird
+        copy-paste spaces in recovery phrases.</li>
+      <li><strong>Quality-of-life upgrades &amp; smaller download:</strong> Undo reposts,
+        image alt-text descriptions, hashtag muting, one-line previews in compact notifications,
+        private crash reports, and a ~50% smaller APK download.</li>
     </ul>
     <p style="color:#98a2b3">Technical details:
     <a class="mono" href="./release-notes.md">release-notes.md</a> ·

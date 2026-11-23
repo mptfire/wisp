@@ -230,10 +230,10 @@ fun SplashScreen(
                     }
             )
             Text(
-                text = "wisp",
+                text = "fire wisp",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontFamily = FontFamily.SansSerif,
-                    fontSize = 56.sp,
+                    fontSize = 48.sp,
                     fontWeight = FontWeight.W500
                 ),
                 color = Color.White
