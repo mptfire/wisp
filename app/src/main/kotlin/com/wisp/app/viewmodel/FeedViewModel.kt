@@ -490,6 +490,8 @@ class FeedViewModel @JvmOverloads constructor(
     fun initRelays() {
         if (!_accountSwitching.value) startup.initRelays()
     }
+
+    fun setTorEnabled(enabled: Boolean) = startup.setTorEnabled(enabled)
     private fun resetForAccountSwitch(clearPersisted: Boolean) {
         stopPublications()
         startup.resetForAccountSwitch(clearPersisted)

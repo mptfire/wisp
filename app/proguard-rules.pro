@@ -66,3 +66,8 @@
 # Credential Manager (OS password-manager autofill via NostrCredentialSaver)
 -keep class androidx.credentials.** { *; }
 -dontwarn androidx.credentials.**
+
+# kmp-tor (embedded Tor) — kmp-process probes JVM-only management APIs behind
+# runtime guards; the classes don't exist on Android by design.
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean

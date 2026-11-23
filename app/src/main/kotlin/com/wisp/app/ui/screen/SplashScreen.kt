@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import com.wisp.app.ui.component.QrScanner
+import com.wisp.app.ui.component.TorCornerButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ButtonDefaults
@@ -97,7 +98,8 @@ fun SplashScreen(
     // Adding an account opens sign-in straight away rather than making the
     // user tap through the intro, which is first-run framing. Dismissing the
     // sheet falls back to this screen, where the Cancel pill lives.
-    startOnSignIn: Boolean = false
+    startOnSignIn: Boolean = false,
+    onToggleTor: (Boolean) -> Unit = {}
 ) {
     val profilePictures by viewModel.profilePictures.collectAsState()
     val liveMetrics by viewModel.liveMetrics.collectAsState()
@@ -269,6 +271,14 @@ fun SplashScreen(
                 )
             }
         }
+
+        TorCornerButton(
+            onToggle = onToggleTor,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(8.dp)
+        )
     }
 
     if (showNostrSheet) {

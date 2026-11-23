@@ -7,8 +7,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import com.wisp.app.relay.HttpClientFactory
+import com.wisp.app.relay.TorManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -44,10 +49,26 @@ class SplashViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
-        val client = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build()
+        startNetworkJobs()
+
+        // The splash screen is where a pre-login Tor toggle happens: rerun the
+        // collage fetch and metrics socket when Tor finishes bootstrapping (On)
+        // or is turned off, so they recover on the new route.
+        viewModelScope.launch {
+            TorManager.state
+                .filter { it is TorManager.State.On || it is TorManager.State.Off }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect {
+                    fetchJob?.cancel()
+                    metricsJob?.cancel()
+                    startNetworkJobs()
+                }
+        }
+    }
+
+    private fun startNetworkJobs() {
+        val client = HttpClientFactory.createRelayClient()
         okHttpClient = client
 
         fetchJob = viewModelScope.launch(Dispatchers.IO) {

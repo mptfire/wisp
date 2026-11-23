@@ -13,13 +13,17 @@ import coil3.request.crossfade
 import com.wisp.app.db.WispObjectBox
 import com.wisp.app.nostr.BlossomUri
 import com.wisp.app.relay.HttpClientFactory
+import com.wisp.app.relay.TorManager
 import com.wisp.app.repo.BlossomRepository
 import com.wisp.app.repo.BlossomUriResolver
 import com.wisp.app.repo.DiagnosticLogger
 import com.wisp.app.repo.ExchangeRateRepository
 import com.wisp.app.repo.KeyRepository
+import com.wisp.app.repo.TorPreferences
 import com.wisp.app.repo.ZapSender
-import okhttp3.OkHttpClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class WispApp : Application(), SingletonImageLoader.Factory {
@@ -28,9 +32,23 @@ class WispApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         CrashHandler.install(this)
         DiagnosticLogger.init(this)
+        TorPreferences.init(this)
+        TorManager.init()
+        if (TorPreferences.isEnabled()) {
+            // Fail-closed BEFORE any repo init can touch the network: every client
+            // built from here on routes to a dead SOCKS port until Tor bootstraps.
+            HttpClientFactory.setTorSocks(HttpClientFactory.TorSocks.Pending)
+            MainScope().launch {
+                TorManager.start()?.let {
+                    HttpClientFactory.setTorSocks(HttpClientFactory.TorSocks.Ready(it))
+                }
+            }
+        }
         WispObjectBox.init(this)
         ZapSender.init(this)
-        ExchangeRateRepository.init(this)
+        MainScope().launch(Dispatchers.IO) {
+            ExchangeRateRepository.init(applicationContext)
+        }
     }
 
     override fun newImageLoader(context: android.content.Context): ImageLoader {
@@ -39,13 +57,13 @@ class WispApp : Application(), SingletonImageLoader.Factory {
         // switcher is picked up without rebuilding the loader.
         val keyRepo = KeyRepository(context)
         val resolver = BlossomUriResolver(
-            httpClient = OkHttpClient.Builder()
-                .connectTimeout(6, TimeUnit.SECONDS)
-                // GET-and-verify downloads whole blobs (hash-checked before
-                // use), so the per-attempt budget has room for a multi-MB
-                // image on a slow server.
-                .callTimeout(20, TimeUnit.SECONDS)
-                .build(),
+            // Factory keeps Tor proxy routing current per fetch.
+            httpClient = {
+                HttpClientFactory.getImageClient().newBuilder()
+                    .connectTimeout(6, TimeUnit.SECONDS)
+                    .callTimeout(20, TimeUnit.SECONDS)
+                    .build()
+            },
             accountServers = {
                 BlossomRepository.readServersFromPrefs(context, keyRepo.getPubkeyHex())
             },

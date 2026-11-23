@@ -23,9 +23,13 @@ import okhttp3.Request
  * every scroll.
  */
 class BlossomUriResolver(
-    private val httpClient: OkHttpClient,
+    private val httpClient: () -> OkHttpClient,
     private val accountServers: () -> List<String>,
 ) {
+    constructor(
+        httpClient: OkHttpClient,
+        accountServers: () -> List<String>,
+    ) : this({ httpClient }, accountServers)
     private val resolved = LruCache<String, String>(CACHE_SIZE)
     private val misses = LruCache<String, Long>(CACHE_SIZE)
 
@@ -51,7 +55,7 @@ class BlossomUriResolver(
 
     /** GETs the blob and returns the URL only when the bytes hash to [sha256]. */
     private fun fetchVerified(url: String, sha256: String): String? = runCatching {
-        httpClient.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
+        httpClient().newCall(Request.Builder().url(url).get().build()).execute().use { response ->
             if (!response.isSuccessful) return null
             val bytes = response.body?.bytes() ?: return null
             if (Blossom.sha256Hex(bytes).equals(sha256, ignoreCase = true)) url else null

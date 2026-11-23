@@ -722,7 +722,8 @@ fun WispNavHost(
                         authViewModel.previousAccountPubkey = null
                         if (prev != null) onSwitchAccount(prev)
                     }
-                } else null
+                } else null,
+                onToggleTor = { feedViewModel.setTorEnabled(it) }
             )
         }
 
@@ -770,7 +771,8 @@ fun WispNavHost(
                             popUpTo(Routes.AUTH) { inclusive = true }
                         }
                     }
-                }
+                },
+                onToggleTor = { feedViewModel.setTorEnabled(it) }
             )
         }
 

@@ -1,5 +1,6 @@
 package com.wisp.app.nostr
 
+import com.wisp.app.relay.HttpClientFactory
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -17,11 +18,18 @@ object SafeHttp {
     const val DEFAULT_MAX_JSON_BYTES = 262_144
     const val MAX_REDIRECTS = 5
 
+    private val IPV4_LITERAL = Regex("""^\d{1,3}(\.\d{1,3}){3}$""")
+    private val DOMAIN_LABEL = Regex("""^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$""")
+
     /**
      * True iff [domain] is a valid public hostname resolving exclusively to
      * public unicast IP addresses (rejects localhost, *.localhost, *.local,
      * *.internal, loopback, RFC 1918, link-local / cloud metadata, CGNAT
      * 100.64.0.0/10, multicast, unspecified, and non-global / ULA IPv6).
+     *
+     * When Tor is active, skips local clearnet DNS resolution (which would leak
+     * the queried hostname to the ISP and fail for .onion) and instead enforces
+     * structural domain / IP-literal checks while letting SOCKS5 resolve over Tor.
      */
     fun isAllowedPublicHost(domain: String): Boolean {
         val host = domain.trim().lowercase().removeSuffix(".")
@@ -30,6 +38,24 @@ object SafeHttp {
         if (host == "localhost" || host.endsWith(".localhost") ||
             host.endsWith(".local") || host.endsWith(".internal")
         ) return false
+
+        if (HttpClientFactory.isTorActive()) {
+            // IPv6 bracketed or colon-containing IP literal: parse without DNS.
+            val unbracketed = host.removePrefix("[").removeSuffix("]")
+            if (':' in unbracketed || IPV4_LITERAL.matches(unbracketed)) {
+                return try {
+                    isPublicUnicast(InetAddress.getByName(unbracketed))
+                } catch (_: Exception) {
+                    false
+                }
+            }
+            // Reject numeric-only shorthand IPs (e.g. 2130706433 or 0x7f000001).
+            val labels = host.split('.')
+            if (labels.size < 2) return false
+            if (labels.all { it.all { ch -> ch.isDigit() } || it.startsWith("0x") }) return false
+            return labels.all { DOMAIN_LABEL.matches(it) }
+        }
+
         val addresses = try {
             InetAddress.getAllByName(host).toList()
         } catch (_: Exception) {

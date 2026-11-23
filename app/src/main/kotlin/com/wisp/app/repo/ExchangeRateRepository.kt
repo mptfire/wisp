@@ -3,6 +3,10 @@ package com.wisp.app.repo
 import android.content.Context
 import android.util.Log
 import com.wisp.app.relay.HttpClientFactory
+import com.wisp.app.relay.TorManager
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -76,6 +80,15 @@ object ExchangeRateRepository {
         appContext = context.applicationContext
         loadCached()
         refresh()
+        // The init-time fetch fails closed while Tor is bootstrapping; refetch
+        // once the route settles (Tor up, or toggled off back to clearnet).
+        scope.launch {
+            TorManager.state
+                .filter { it is TorManager.State.On || it is TorManager.State.Off }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { refresh() }
+        }
     }
 
     fun refresh() {

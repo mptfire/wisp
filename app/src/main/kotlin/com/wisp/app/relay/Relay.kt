@@ -24,9 +24,16 @@ data class RelayFailure(val relayUrl: String, val httpCode: Int?, val message: S
 
 class Relay(
     val config: RelayConfig,
-    private val client: OkHttpClient,
+    /** Resolved on every (re)connect so a Tor toggle's new client is picked up
+     *  without recreating the Relay. */
+    private val clientProvider: () -> OkHttpClient,
     private val scope: CoroutineScope? = null
 ) {
+    constructor(
+        config: RelayConfig,
+        client: OkHttpClient,
+        scope: CoroutineScope? = null
+    ) : this(config, { client }, scope)
     @Volatile private var webSocket: WebSocket? = null
     private val connectLock = Any()
     @Volatile var isConnected = false
@@ -132,7 +139,7 @@ class Relay(
             }
             val socketId = System.nanoTime()
             Log.d("RLC", "[Relay] connect() creating ws#$socketId for ${config.url}")
-            webSocket = client.newWebSocket(request, object : WebSocketListener() {
+            webSocket = clientProvider().newWebSocket(request, object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     Log.d("RLC", "[Relay] ws#$socketId onOpen ${config.url} | isConnected was=$isConnected")
                     isConnected = true

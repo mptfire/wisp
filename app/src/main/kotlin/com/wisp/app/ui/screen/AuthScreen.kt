@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.wisp.app.ui.component.NsecPasteGuard
 import com.wisp.app.ui.component.QrScanner
+import com.wisp.app.ui.component.TorCornerButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -76,7 +78,8 @@ import com.wisp.app.viewmodel.AuthViewModel
 fun AuthScreen(
     viewModel: AuthViewModel,
     showSignUp: Boolean = true,
-    onAuthenticated: (isNewAccount: Boolean) -> Unit
+    onAuthenticated: (isNewAccount: Boolean) -> Unit,
+    onToggleTor: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val nsecInput by viewModel.nsecInput.collectAsState()
@@ -129,6 +132,7 @@ fun AuthScreen(
         onDispose { NsecPasteGuard.nsecPasteAllowed = false }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -310,6 +314,14 @@ fun AuthScreen(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+    }
+    TorCornerButton(
+        onToggle = onToggleTor,
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .statusBarsPadding()
+            .padding(8.dp)
+    )
     }
 }
 

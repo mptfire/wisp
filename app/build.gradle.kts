@@ -144,7 +144,11 @@ android {
     }
 
     packaging {
-        jniLibs.useLegacyPackaging = false
+        // Direct-APK distribution (staging/prod/GitHub/Zapstore): compressed
+        // native libs cut the APK download roughly in half (~50–55 MB vs 103 MB).
+        // Also required by kmp-tor so libtor.so is extracted to nativeLibraryDir
+        // (W^X prevents executing from app data storage on API 29+).
+        jniLibs.useLegacyPackaging = true
     }
 
     testOptions {
@@ -235,6 +239,9 @@ dependencies {
         exclude(group = "com.google.android.gms", module = "play-services-auth")
         exclude(group = "com.google.android.libraries.identity.googleid", module = "googleid")
     }
+    implementation(libs.kmp.tor.runtime)
+    implementation(libs.kmp.tor.runtime.service.ui)
+    implementation(libs.kmp.tor.resource.exec)
     implementation(libs.mlkit.barcode)
     implementation(libs.camerax.core)
     implementation(libs.camerax.camera2)

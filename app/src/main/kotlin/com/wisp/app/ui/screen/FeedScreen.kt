@@ -682,6 +682,11 @@ fun FeedScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
+            val torState by com.wisp.app.relay.TorManager.state.collectAsState()
+            val torContext = LocalContext.current
+            val notifPermLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) {}
             WispDrawerContent(
                 profile = userProfile,
                 pubkey = userPubkey,
@@ -767,6 +772,19 @@ fun FeedScreen(
                 onLogout = {
                     scope.launch { drawerState.close() }
                     onLogout()
+                },
+                torState = torState,
+                onToggleTor = {
+                    val enable = torState is com.wisp.app.relay.TorManager.State.Off ||
+                        torState is com.wisp.app.relay.TorManager.State.Error
+                    if (enable && android.os.Build.VERSION.SDK_INT >= 33 &&
+                        androidx.core.content.ContextCompat.checkSelfPermission(
+                            torContext, android.Manifest.permission.POST_NOTIFICATIONS
+                        ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    ) {
+                        notifPermLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                    viewModel.setTorEnabled(enable)
                 },
                 hasEmbeddedWallet = hasEmbeddedWallet,
                 walletConfigured = walletConfigured,
