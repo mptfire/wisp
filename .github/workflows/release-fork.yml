@@ -117,7 +117,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
-          name: Wisp fork ${{ steps.tag.outputs.name }}
+          name: Fire Wisp ${{ steps.tag.outputs.name }}
           body_path: dist/release-notes.md
           files: |
             staging/wisp-${{ env.VERSION }}.apk
