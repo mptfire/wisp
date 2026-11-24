@@ -4,6 +4,8 @@
 repository: https://github.com/mptfire/wisp
 name: Fire Wisp
 summary: Privacy-hardened Nostr client for Android with built-in Tor, sovereign auth, and Lightning zaps.
+icon: ./app/src/main/res/drawable-nodpi/ic_wisp_logo.png
+release_notes: ./dist/release-notes.md
 description: |
   Fire Wisp is a community-maintained, privacy-focused fork of Wisp for Android:
   - Sovereign Nostr sign-in: Amber (NIP-55), NIP-49 encrypted keys (ncryptsec), NIP-06 12/24-word recovery phrases, and mandatory key backup on signup. Zero Google Sign-In or Google Drive SDKs.
