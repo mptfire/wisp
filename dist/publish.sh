@@ -89,5 +89,5 @@ ls staging
 echo
 echo "deploy targets (webroot layout, Caddy/nginx):"
 echo "  staging first : rsync -av --delete staging/ user@vps:/srv/staging.firewisp.rtard.de/"
-echo "  prod (tagged) : rsync -av --delete staging/ user@vps:/srv/firewisp.rtard.de/"
+echo "  prod (tagged) : rsync -av --delete staging/ user@vps:/srv/app.firewisp.rtard.de/"
 echo "live verify: curl -fsSLI https://staging.firewisp.rtard.de/wisp-${VERSION}.apk | grep -iE 'content-type|content-disposition|strict-transport'"
