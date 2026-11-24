@@ -54,17 +54,17 @@ jobs:
           done
           exit $missing
 
+      - name: Unit test gate
+        env:
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
+        run: ./gradlew --no-daemon testDebugUnitTest
+
       - name: Decode keystore
         run: |
           echo "$WISP_FORK_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/wisp-fork-release.jks"
           echo "WISP_FORK_KEYSTORE=$RUNNER_TEMP/wisp-fork-release.jks" >> "$GITHUB_ENV"
         env:
           WISP_FORK_KEYSTORE_BASE64: ${{ secrets.WISP_FORK_KEYSTORE_BASE64 }}
-
-      - name: Unit test gate
-        env:
-          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
-        run: ./gradlew --no-daemon testDebugUnitTest
 
       - name: Build signed release APK
         env:
