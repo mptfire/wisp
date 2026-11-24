@@ -197,6 +197,8 @@ fun NostrUriData.toRoute(): String? = when (this) {
 fun WispNavHost(
     deepLinkUri: String? = null,
     onDeepLinkConsumed: () -> Unit = {},
+    pendingShare: PendingShare? = null,
+    onPendingShareConsumed: () -> Unit = {},
     isDarkTheme: Boolean = true,
     onToggleTheme: () -> Unit = {},
     accentColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color(0xFFFF9800),
@@ -439,6 +441,35 @@ fun WispNavHost(
         if (currentDest != null && currentDest !in setOf(Routes.LOADING, Routes.AUTH, Routes.SPLASH, Routes.ONBOARDING_PROFILE, Routes.ONBOARDING_BACKUP_KEY)) {
             onDeepLinkConsumed()
             navController.navigate(route)
+        }
+    }
+
+    val consumePendingShare: (PendingShare) -> Unit = { share ->
+        onPendingShareConsumed()
+        if (signingMode != SigningMode.READ_ONLY) {
+            replyTarget = null
+            quoteTarget = null
+            composeViewModel.applySharedContent(
+                text = share.text,
+                mediaUris = share.mediaUris,
+                contentResolver = appContext.contentResolver,
+                signer = activeSigner
+            )
+            if (navController.currentDestination?.route != Routes.COMPOSE) {
+                navController.navigate(Routes.COMPOSE) {
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    // Handle Android Share sheet intents when app is already past loading (onNewIntent)
+    LaunchedEffect(pendingShare) {
+        val share = pendingShare ?: return@LaunchedEffect
+        if (!authViewModel.isLoggedIn) return@LaunchedEffect
+        val currentDest = navController.currentDestination?.route
+        if (currentDest != null && currentDest !in setOf(Routes.LOADING, Routes.AUTH, Routes.SPLASH, Routes.ONBOARDING_PROFILE, Routes.ONBOARDING_BACKUP_KEY)) {
+            consumePendingShare(share)
         }
     }
 
@@ -789,8 +820,14 @@ fun WispNavHost(
             LoadingScreen(
                 viewModel = feedViewModel,
                 onReady = {
+                    val share = pendingShare
                     val target = deepLinkRoute
-                    if (target != null) {
+                    if (share != null) {
+                        navController.navigate(Routes.FEED) {
+                            popUpTo(Routes.LOADING) { inclusive = true }
+                        }
+                        consumePendingShare(share)
+                    } else if (target != null) {
                         onDeepLinkConsumed()
                         // Navigate to Feed first (as backstack root), then to the deep link target
                         navController.navigate(Routes.FEED) {

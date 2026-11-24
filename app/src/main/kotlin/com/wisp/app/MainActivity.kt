@@ -28,6 +28,20 @@ import com.wisp.app.ui.theme.WispTheme
 class MainActivity : FragmentActivity() {
     var deepLinkUri = mutableStateOf<String?>(null)
         private set
+    var pendingShare = mutableStateOf<PendingShare?>(null)
+        private set
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+        val share = ShareIntentParser.parse(intent)
+        if (share != null) {
+            pendingShare.value = share
+            return
+        }
+        intent.data?.toString()?.let { uri ->
+            deepLinkUri.value = uri
+        }
+    }
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences("wisp_settings", Context.MODE_PRIVATE)
@@ -40,7 +54,9 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         NsecPasteGuard.setActivity(this)
         enableEdgeToEdge()
-        deepLinkUri.value = intent?.data?.toString()
+        if (savedInstanceState == null) {
+            handleIncomingIntent(intent)
+        }
         setContent {
             val prefs = remember { getSharedPreferences("wisp_settings", Context.MODE_PRIVATE) }
             val interfacePrefs = remember { InterfacePreferences(this@MainActivity) }
@@ -84,6 +100,8 @@ class MainActivity : FragmentActivity() {
                     WispNavHost(
                         deepLinkUri = deepLinkUri.value,
                         onDeepLinkConsumed = { deepLinkUri.value = null },
+                        pendingShare = pendingShare.value,
+                        onPendingShareConsumed = { pendingShare.value = null },
                         isDarkTheme = isDarkTheme,
                         onToggleTheme = {
                             isDarkTheme = !isDarkTheme
@@ -110,6 +128,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        deepLinkUri.value = intent.data?.toString()
+        setIntent(intent)
+        handleIncomingIntent(intent)
     }
 }

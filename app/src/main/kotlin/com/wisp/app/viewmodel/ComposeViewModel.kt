@@ -423,6 +423,23 @@ class ComposeViewModel(app: Application, private val savedStateHandle: SavedStat
         }
     }
 
+    fun applySharedContent(
+        text: String?,
+        mediaUris: List<Uri>,
+        contentResolver: ContentResolver,
+        signer: NostrSigner? = null
+    ) {
+        val cleanText = text?.trim().orEmpty()
+        if (cleanText.isNotEmpty()) {
+            val current = _content.value.text
+            val merged = if (current.isBlank()) cleanText else "$current\n$cleanText"
+            updateContent(TextFieldValue(merged, TextRange(merged.length)))
+        }
+        if (mediaUris.isNotEmpty()) {
+            uploadMedia(mediaUris, contentResolver, signer)
+        }
+    }
+
     fun updateContent(value: TextFieldValue) {
         val prev = _content.value
         // Shift/drop tracked mention ranges based on the edit delta between prev and value.

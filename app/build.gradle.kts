@@ -56,8 +56,8 @@ android {
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 92
-        versionName = "1.3.0-fork.1"
+        versionCode = 93
+        versionName = "1.3.0-fork.2"
         resValue("string", "app_name", "Fire Wisp")
 
         ndk {

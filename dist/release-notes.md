@@ -1,3 +1,17 @@
+## Fire Wisp 1.3.0-fork.2 (versionCode 93)
+
+- **Android Share Target (`ACTION_SEND` / `ACTION_SEND_MULTIPLE`)**:
+  - Fire Wisp now registers in Android's native Share sheet for `text/plain`
+    (YouTube videos, web links, text), `image/*`, and `video/*` (including
+    multi-image shares).
+  - Sharing from YouTube, a browser, or Gallery opens Fire Wisp straight to
+    the Compose screen with text/links pre-filled and shared photos/videos
+    uploaded automatically to your configured Blossom media server.
+  - Only `content://` URIs are accepted from external share intents (`file://`
+    URIs are rejected to prevent local file exfiltration).
+
+---
+
 ## Fire Wisp 1.3.0-fork.1 (versionCode 92)
 
 Security- and privacy-focused Android fork of Wisp, based on upstream `main`
