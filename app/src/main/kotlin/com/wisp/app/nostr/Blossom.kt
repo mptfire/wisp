@@ -7,7 +7,7 @@ import java.util.Base64
 object Blossom {
     const val KIND_SERVER_LIST = 10063
     const val KIND_AUTH = 24242
-    const val DEFAULT_SERVER = "https://firewisp.blossom.rtard.de"
+    const val DEFAULT_SERVER = "https://blossom.nostr.build"
     const val FALLBACK_SERVER = "https://blossom.primal.net"
 
     /**

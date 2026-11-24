@@ -8,7 +8,7 @@ description: |
   Fire Wisp is a community-maintained, privacy-focused fork of Wisp for Android:
   - Sovereign Nostr sign-in: Amber (NIP-55), NIP-49 encrypted keys (ncryptsec), NIP-06 12/24-word recovery phrases, and mandatory key backup on signup. Zero Google Sign-In or Google Drive SDKs.
   - Built-in fail-closed Tor (kmp-tor) with one-tap toggle on the login screen and drawer.
-  - Preconfigured with Fire Wisp's anti-spam Nostr relay (wss://firewisp.relay.rtard.de) and EXIF-stripping Blossom media server (https://firewisp.blossom.rtard.de).
+  - Preconfigured with Fire Wisp's anti-spam Nostr relay (wss://firewisp.relay.rtard.de) and free public Blossom media hosting (blossom.nostr.build / blossom.primal.net, configurable in Settings).
   - NIP-17 seal-authenticated encrypted DMs, gated DM media loading, undo reposts (NIP-09), image alt text (NIP-92), hashtag muting, and Lightning zaps (NWC / Spark).
 tags:
   - nostr
