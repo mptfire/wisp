@@ -54,6 +54,23 @@ jobs:
           done
           exit $missing
 
+      - name: Cache Robolectric SDK 28 artifact
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-sdk28-9-4913185-2-i7
+
+      - name: Pre-fetch Robolectric SDK 28 jar (avoids MavenArtifactFetcher flakes)
+        run: |
+          DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/9-robolectric-4913185-2-i7"
+          BASE="https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/9-robolectric-4913185-2-i7"
+          mkdir -p "$DIR"
+          for f in android-all-instrumented-9-robolectric-4913185-2-i7.jar android-all-instrumented-9-robolectric-4913185-2-i7.pom; do
+            if [ ! -s "$DIR/$f" ]; then
+              curl -fsSL --retry 5 --retry-all-errors --retry-delay 3 "$BASE/$f" -o "$DIR/$f"
+            fi
+          done
+
       - name: Unit test gate
         env:
           BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
