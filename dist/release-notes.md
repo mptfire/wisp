@@ -57,6 +57,9 @@ hardening and UX ports:
 - Own package ID `de.rtard.wisp`, launcher name "Fire Wisp": installs
   side-by-side with upstream Wisp (`com.wisp.app`). Restore and verify your
   recovery phrase inside Fire Wisp before uninstalling upstream.
+- Lightning zaps via NWC (Nostr Wallet Connect) work out of the box; the
+  built-in Breez Spark wallet will activate in an upcoming build once a
+  `BREEZ_API_KEY` is configured.
 - arm64-v8a only, Android 8.0+.
 - Verify the APK against `SHA256SUMS`; signing certificate SHA-256:
   `3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a`.

@@ -13,7 +13,7 @@
   "sha256": null,
   "sha256Note": "filled in the published staging bundle by dist/publish.sh",
   "certSha256": "3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a",
-  "released": "2026-11-22",
+  "released": "2026-11-24",
   "source": "https://github.com/mptfire/wisp/tree/release/v1.3.0-fork.1",
   "notes": "release-notes.md"
 }
