@@ -121,6 +121,7 @@ class StartupCoordinator(
     private var startupJob: Job? = null
     private var healthSnapshotJob: Job? = null
     private var notifSeedJob: Job? = null
+    private var localRelayJob: Job? = null
 
     var relaysInitialized = false
         private set
@@ -137,6 +138,7 @@ class StartupCoordinator(
         startupJob?.cancel()
         healthSnapshotJob?.cancel()
         notifSeedJob?.cancel()
+        localRelayJob?.cancel()
         feedSub.reset()
 
         // Stop lifecycle manager and disconnect relays
@@ -279,6 +281,15 @@ class StartupCoordinator(
         relayPool.updateRelays(initialRelays)
         val dmRelays = keyRepo.getDmRelays()
         relayPool.updateDmRelays(dmRelays)
+
+        // Connect local relay (Citrine / LAN) if configured and observe changes
+        relayPool.updateLocalRelay(keyRepo.getLocalRelay(), getUserPubkey())
+        localRelayJob?.cancel()
+        localRelayJob = scope.launch {
+            keyRepo.localRelayFlow.drop(1).collectLatest { config ->
+                relayPool.updateLocalRelay(config, getUserPubkey())
+            }
+        }
 
         scope.launch {
             relayInfoRepo.prefetchAll(initialRelays.map { it.url })
@@ -1011,6 +1022,7 @@ class StartupCoordinator(
         relayPool.updateRelays(relays)
         val dmRelays = keyRepo.getDmRelays()
         relayPool.updateDmRelays(dmRelays)
+        relayPool.updateLocalRelay(keyRepo.getLocalRelay(), getUserPubkey())
         // Relay settings changed: re-open subs on the new relays without wiping the feed.
         feedSub.subscribeFeed(refresh = false)
     }

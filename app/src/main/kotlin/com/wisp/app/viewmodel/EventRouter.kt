@@ -615,8 +615,9 @@ class EventRouter(
 
     private fun processGiftWrap(event: NostrEvent, relayUrl: String) {
         dmRepo.updateLatestGiftWrapTimestamp(event.created_at)
-        // Remote signer mode: store raw gift wraps, decrypt later when user views DMs
-        if (keyRepo.getSigningMode() == SigningMode.REMOTE) {
+        // Remote signer / NIP-46 bunker mode: store raw gift wraps, decrypt later when user views DMs
+        val mode = keyRepo.getSigningMode()
+        if (mode == SigningMode.REMOTE || mode == SigningMode.BUNKER) {
             dmRepo.addPendingGiftWrap(event, relayUrl)
             return
         }

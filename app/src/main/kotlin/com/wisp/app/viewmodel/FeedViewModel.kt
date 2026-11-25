@@ -599,19 +599,24 @@ class FeedViewModel @JvmOverloads constructor(
 
     suspend fun probeRelay(input: String): String? {
         // If the caller already provided a full URL, try only that
-        if (input.startsWith("ws://") || input.startsWith("wss://")) {
+        if (input.startsWith("ws://", ignoreCase = true) || input.startsWith("wss://", ignoreCase = true)) {
+            if (!RelayConfig.isValidUrl(input) && !RelayConfig.isLocalRelayUrl(input)) return null
             return if (tryConnect(input)) input else null
         }
-        // Bare domain — try wss:// first, fall back to ws://
+        // Bare domain — try wss:// first; only allow ws:// fallback for local/LAN hosts
         val wssUrl = "wss://$input"
-        if (tryConnect(wssUrl)) return wssUrl
+        if ((RelayConfig.isValidUrl(wssUrl) || RelayConfig.isLocalRelayUrl(wssUrl)) && tryConnect(wssUrl)) return wssUrl
         val wsUrl = "ws://$input"
-        if (tryConnect(wsUrl)) return wsUrl
+        if (RelayConfig.isLocalRelayUrl(wsUrl) && tryConnect(wsUrl)) return wsUrl
         return null
     }
 
     private suspend fun tryConnect(url: String): Boolean {
-        val client = HttpClientFactory.createRelayClient()
+        val client = if (RelayConfig.isLocalRelayUrl(url)) {
+            HttpClientFactory.getLocalRelayClient()
+        } else {
+            HttpClientFactory.createRelayClient()
+        }
         val relay = Relay(RelayConfig(url, read = true, write = false), client)
         relay.autoReconnect = false
         return try {
@@ -626,9 +631,13 @@ class FeedViewModel @JvmOverloads constructor(
     }
 
     // -- Social action delegates --
+    val pendingBlockTarget: StateFlow<PendingBlockTarget?> get() = socialActions.pendingBlockTarget
     fun toggleFollow(pubkey: String) = socialActions.toggleFollow(pubkey)
     fun confirmFirstFollow() = socialActions.confirmFirstFollow()
     fun dismissFirstFollow() = socialActions.dismissFirstFollow()
+    fun requestBlockUser(pubkey: String, onConfirmed: (() -> Unit)? = null) = socialActions.requestBlockUser(pubkey, onConfirmed)
+    fun confirmBlockUser() = socialActions.confirmBlockUser()
+    fun dismissBlockUser() = socialActions.dismissBlockUser()
     fun blockUser(pubkey: String) = socialActions.blockUser(pubkey)
     fun unblockUser(pubkey: String) = socialActions.unblockUser(pubkey)
     fun updateMutedWords() = socialActions.updateMutedWords()

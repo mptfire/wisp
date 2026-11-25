@@ -45,6 +45,9 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
     /** Resolved by each Relay on every (re)connect, so a Tor toggle's rebuilt
      *  client is picked up without recreating Relay instances. */
     private val clientProvider: () -> OkHttpClient = { HttpClientFactory.getRelayClient() }
+    private val localClientProvider: () -> OkHttpClient = { HttpClientFactory.getLocalRelayClient() }
+    private fun clientProviderFor(url: String): () -> OkHttpClient =
+        if (RelayConfig.isLocalRelayUrl(url)) localClientProvider else clientProvider
     private val relays = CopyOnWriteArrayList<Relay>()
     private val dmRelays = CopyOnWriteArrayList<Relay>()
     /** Persistent connections for NIP-29 group chat relays — auto-reconnect enabled. */
@@ -55,6 +58,14 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
     @Volatile private var pinnedRelayUrls = emptySet<String>()
     private var blockedUrls = emptySet<String>()
     fun getBlockedUrls(): Set<String> = blockedUrls
+
+    // --- Local relay (Citrine / LAN) ---
+    private val localRelayLock = Any()
+    @Volatile private var localRelay: Relay? = null
+    @Volatile private var localRelayConfig: LocalRelayConfig? = null
+    @Volatile var localRelayUserPubkey: String? = null
+    private val _localRelayStatus = MutableStateFlow<LocalRelayStatus>(LocalRelayStatus.Disabled)
+    val localRelayStatus: StateFlow<LocalRelayStatus> = _localRelayStatus
 
     /** URLs tagged as recipient DM delivery relays (tier 2 for AUTH). */
     private val dmDeliveryTargets: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
@@ -471,6 +482,11 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
                             }
                             _events.emit(msg.event)
                             _relayEvents.emit(RelayEvent(msg.event, relay.config.url, msg.subscriptionId))
+                            // Forward matching events to local relay (fire-and-forget)
+                            val lr = localRelay
+                            if (lr != null && relay !== lr && shouldForwardToLocalRelay(msg.event)) {
+                                lr.send(ClientMessage.event(msg.event))
+                            }
                             subEventCounts.getOrPut(msg.subscriptionId) { java.util.concurrent.atomic.AtomicInteger(0) }.incrementAndGet()
                             if (msg.subscriptionId.startsWith("feed")) {
                                 val count = ++feedEventCounter
@@ -563,17 +579,18 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
         }
         scope.launch(parentJob) {
             relay.connectionState.collect { connected ->
-                if (relayIndex[relay.config.url] !== relay) return@collect
-                Log.d("RLC", "[Pool] connectionState=$connected for ${relay.config.url} | relay.isConnected=${relay.isConnected} appIsActive=$appIsActive isReconnecting=$isReconnecting")
+                val isLocal = localRelay === relay
+                if (relayIndex[relay.config.url] !== relay && !isLocal) return@collect
+                Log.d("RLC", "[Pool] connectionState=$connected for ${relay.config.url} | relay.isConnected=${relay.isConnected} appIsActive=$appIsActive isReconnecting=$isReconnecting isLocal=$isLocal")
                 updateConnectedCount()
                 if (connected) {
                     // Always resync regardless of appIsActive — relays that connect
                     // during the awaitAnyConnected window (before appIsActive=true)
                     // would otherwise miss their subscriptions entirely.
                     resyncSubscriptions(relay)
-                    if (appIsActive && !isReconnecting) healthTracker?.onRelayConnected(relay.config.url)
+                    if (!isLocal && appIsActive && !isReconnecting) healthTracker?.onRelayConnected(relay.config.url)
                 } else {
-                    if (appIsActive && !isReconnecting) healthTracker?.closeSession(relay.config.url)
+                    if (!isLocal && appIsActive && !isReconnecting) healthTracker?.closeSession(relay.config.url)
                     clearRelayAuthSession(relay.config.url)
                     subscriptionTracker.untrackRelay(relay.config.url)
                 }
@@ -639,6 +656,10 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
                 if (relay.send(message)) sentCount++
                 if (isEvent && appIsActive) healthTracker?.onEventSent(relay.config.url, message.length)
             }
+        }
+        // Also forward own published events to the local relay when enabled
+        if (isEvent && localRelayConfig?.enabled == true) {
+            localRelay?.send(message)
         }
         return sentCount
     }
@@ -856,11 +877,11 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
      */
     fun connectEphemeralRelay(url: String) {
         if (url in blockedUrls) return
-        if (!RelayConfig.isValidUrl(url)) return
+        if (!RelayConfig.isValidUrl(url) && !RelayConfig.isLocalRelayUrl(url)) return
         if (ephemeralRelays.containsKey(url) || relayIndex.containsKey(url)) return
         if (ephemeralRelays.size >= MAX_EPHEMERAL) return
         ephemeralRelays.computeIfAbsent(url) {
-            val relay = Relay(RelayConfig(url, read = true, write = false), clientProvider, scope)
+            val relay = Relay(RelayConfig(url, read = true, write = false), clientProviderFor(url), scope)
             relay.autoReconnect = false
             wireByteTracking(relay)
             relayIndex[url] = relay
@@ -900,7 +921,7 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
     ): Boolean {
         if (url in blockedUrls) return false
         if (!skipBadCheck && healthTracker?.isBad(url) == true) return false
-        if (!RelayConfig.isValidUrl(url)) return false
+        if (!RelayConfig.isValidUrl(url) && !RelayConfig.isLocalRelayUrl(url)) return false
 
         // Check cooldown for failed relays
         val cooldownUntil = relayCooldowns[url]
@@ -950,7 +971,7 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
         var isNew = false
         val ephemeral = ephemeralRelays.computeIfAbsent(url) {
             isNew = true
-            val relay = Relay(RelayConfig(url, read = true, write = write), clientProvider, scope)
+            val relay = Relay(RelayConfig(url, read = true, write = write), clientProviderFor(url), scope)
             relay.autoReconnect = autoReconnect
             wireByteTracking(relay)
             relayIndex[url] = relay
@@ -981,6 +1002,12 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
     private fun collectRelayFailures(relay: Relay, parentJob: Job) {
         scope.launch(parentJob) {
             relay.failures.collect { failure ->
+                if (relay === localRelay) {
+                    // Local relay failures are handled synchronously by bindLocalRelayCallbacks()
+                    // and must never enter ephemeral cooldown or persistent healthTracker bad-relay lists.
+                    Log.d("RelayPool", "Failure on local relay ${relay.config.url} (${failure.message}), will retry in 3s")
+                    return@collect
+                }
                 val isEphemeral = ephemeralRelays.containsKey(relay.config.url)
                 // Never mark ephemeral relays bad in the health tracker — they're user-initiated
                 // (search, outbox routing) and already have an in-memory cooldown. Persisting them
@@ -1125,14 +1152,19 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
         for ((url, relay) in ephemeralRelays) {
             relay.reconnectEnabled = false  // Suppress onFailure errors from disconnect()
             relay.disconnect()
-            relayIndex.remove(url)
-            cancelRelayJobs(url)
-            activeSubscriptions.remove(url)
-            subscriptionTracker.untrackRelay(url)
-            authenticatedRelays.remove(url)
+            if (localRelay?.config?.url != url) {
+                relayIndex.remove(url)
+                cancelRelayJobs(url)
+                activeSubscriptions.remove(url)
+                subscriptionTracker.untrackRelay(url)
+                authenticatedRelays.remove(url)
+            }
         }
         ephemeralRelays.clear()
         ephemeralLastUsed.clear()
+        if (localRelayConfig?.enabled == true && localRelay?.isConnected != true) {
+            resumeLocalRelay()
+        }
         isReconnecting = false
         val total = relays.size + dmRelays.size
         Log.d("RLC", "[Pool] reconnectAll() END — reconnected $total relays, activeSubs remaining=${activeSubscriptions.size}")
@@ -1191,12 +1223,17 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
         for ((url, relay) in ephemeralRelays) {
             relay.reconnectEnabled = false  // Suppress onFailure errors from disconnect()
             relay.disconnect()
-            relayIndex.remove(url)
-            cancelRelayJobs(url)
-            authenticatedRelays.remove(url)
+            if (localRelay?.config?.url != url) {
+                relayIndex.remove(url)
+                cancelRelayJobs(url)
+                authenticatedRelays.remove(url)
+            }
         }
         ephemeralRelays.clear()
         ephemeralLastUsed.clear()
+        if (localRelayConfig?.enabled == true && localRelay?.isConnected != true) {
+            resumeLocalRelay()
+        }
         isReconnecting = false
         Log.d("RLC", "[Pool] forceReconnectAll() END — all subs/trackers cleared")
         if (DiagnosticLogger.isEnabled) {
@@ -1269,10 +1306,10 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
      */
     fun preConnectEphemeral(url: String) {
         if (url in blockedUrls) return
-        if (!RelayConfig.isValidUrl(url)) return
-        if (ephemeralRelays.containsKey(url)) return
+        if (!RelayConfig.isValidUrl(url) && !RelayConfig.isLocalRelayUrl(url)) return
+        if (ephemeralRelays.containsKey(url) || relayIndex.containsKey(url)) return
         if (ephemeralRelays.size >= MAX_EPHEMERAL) return
-        val relay = Relay(RelayConfig(url, read = true, write = false), clientProvider, scope)
+        val relay = Relay(RelayConfig(url, read = true, write = false), clientProviderFor(url), scope)
         relay.autoReconnect = false
         wireByteTracking(relay)
         relayIndex[url] = relay
@@ -1315,7 +1352,8 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
         return urls
     }
 
-    fun isRelayConnected(url: String): Boolean = relayIndex[url]?.isConnected == true
+    fun isRelayConnected(url: String): Boolean =
+        (localRelay?.takeIf { it.config.url == url } ?: relayIndex[url])?.isConnected == true
 
     /** Clear cooldown for a specific relay so it can be retried immediately. */
     fun clearCooldown(url: String) {
@@ -1342,6 +1380,218 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
         }
     }
 
+    // --- Local relay management (Citrine / LAN) ---
+
+    private fun bindLocalRelayCallbacks(relay: Relay) {
+        relay.reconnectOnNormalClose = true
+        relay.onConnectionStateChanged = { connected ->
+            if (localRelay === relay) {
+                if (connected) {
+                    _localRelayStatus.value = LocalRelayStatus.Connected
+                } else if (localRelayConfig?.enabled != true) {
+                    _localRelayStatus.value = LocalRelayStatus.Disabled
+                }
+            }
+        }
+        relay.onFailureEvent = { failure ->
+            if (localRelay === relay && localRelayConfig?.enabled == true) {
+                val friendly = if (failure.message.contains("timeout", ignoreCase = true)) {
+                    "relay accepted the connection but isn't answering — stop and start the relay in its app (e.g. Citrine)"
+                } else failure.message
+                _localRelayStatus.value = LocalRelayStatus.Error(friendly)
+                addConsoleEntry(ConsoleLogEntry(
+                    relayUrl = relay.config.url,
+                    type = ConsoleLogType.CONN_FAILURE,
+                    message = failure.message
+                ))
+            }
+        }
+        relay.onClosedEvent = { code, reason ->
+            if (localRelay === relay && localRelayConfig?.enabled == true) {
+                val detail = if (reason.isNotBlank()) "Closed ($code: $reason)" else "Disconnected (code $code)"
+                _localRelayStatus.value = LocalRelayStatus.Error(detail)
+                addConsoleEntry(ConsoleLogEntry(
+                    relayUrl = relay.config.url,
+                    type = ConsoleLogType.CONN_CLOSED,
+                    message = detail
+                ))
+            }
+        }
+    }
+
+    fun updateLocalRelay(config: LocalRelayConfig?, userPubkey: String?) {
+        synchronized(localRelayLock) {
+            localRelayUserPubkey = userPubkey
+            val oldRelay = localRelay
+            val oldUrl = oldRelay?.config?.url
+
+            if (config == null || !config.enabled || !RelayConfig.isLocalRelayUrl(config.url)) {
+                if (oldRelay != null) {
+                    oldRelay.reconnectEnabled = false
+                    oldRelay.forceDisconnect()
+                    cancelRelayJobs(oldRelay.config.url)
+                    if (relayIndex[oldRelay.config.url] === oldRelay) {
+                        relayIndex.remove(oldRelay.config.url)
+                    }
+                    localRelay = null
+                    localRelayConfig = config
+                    Log.d("RLC", "[Pool] local relay disconnected: $oldUrl")
+                } else {
+                    localRelayConfig = config
+                }
+                _localRelayStatus.value = LocalRelayStatus.Disabled
+                return
+            }
+
+            // Evict any prior ephemeral socket or cooldown on this local URL so it
+            // cannot collide with localRelay or wipe relayIndex during reconnectAll().
+            ephemeralRelays.remove(config.url)?.let { eph ->
+                if (eph !== oldRelay) {
+                    eph.reconnectEnabled = false
+                    eph.forceDisconnect()
+                }
+            }
+            ephemeralLastUsed.remove(config.url)
+            relayCooldowns.remove(config.url)
+            healthTracker?.clearBadRelay(config.url)
+
+            localRelayConfig = config
+
+            if (oldRelay != null && oldUrl == config.url) {
+                bindLocalRelayCallbacks(oldRelay)
+                relayIndex[config.url] = oldRelay
+                oldRelay.reconnectEnabled = true
+                if (oldRelay.isConnected) {
+                    _localRelayStatus.value = LocalRelayStatus.Connected
+                } else {
+                    oldRelay.resetBackoff()
+                    if (_localRelayStatus.value is LocalRelayStatus.Disabled) {
+                        _localRelayStatus.value = LocalRelayStatus.Connecting
+                    }
+                    oldRelay.connect()
+                }
+                return
+            }
+
+            if (oldRelay != null) {
+                oldRelay.reconnectEnabled = false
+                oldRelay.forceDisconnect()
+                cancelRelayJobs(oldRelay.config.url)
+                if (relayIndex[oldRelay.config.url] === oldRelay) {
+                    relayIndex.remove(oldRelay.config.url)
+                }
+            }
+
+            _localRelayStatus.value = LocalRelayStatus.Connecting
+            val relayConfig = RelayConfig(config.url, read = true, write = true)
+            val relay = Relay(relayConfig, localClientProvider, scope)
+            localRelay = relay
+            relayIndex[config.url] = relay
+            bindLocalRelayCallbacks(relay)
+            collectMessages(relay)
+            relay.connect()
+            Log.d("RLC", "[Pool] local relay connecting: ${config.url}")
+        }
+    }
+
+    /** Force an immediate fresh local relay connection, replacing any stuck socket or backoff. */
+    fun reconnectLocalRelay(configOverride: LocalRelayConfig? = null, userPubkey: String? = null) {
+        synchronized(localRelayLock) {
+            if (userPubkey != null) localRelayUserPubkey = userPubkey
+            val cfg = configOverride ?: localRelayConfig ?: return
+            if (!cfg.enabled || !RelayConfig.isLocalRelayUrl(cfg.url)) return
+            localRelayConfig = cfg
+
+            ephemeralRelays.remove(cfg.url)?.let { eph ->
+                eph.reconnectEnabled = false
+                eph.forceDisconnect()
+            }
+            ephemeralLastUsed.remove(cfg.url)
+            relayCooldowns.remove(cfg.url)
+            healthTracker?.clearBadRelay(cfg.url)
+
+            localRelay?.let { old ->
+                old.reconnectEnabled = false
+                old.forceDisconnect()
+                cancelRelayJobs(old.config.url)
+                if (relayIndex[old.config.url] === old) {
+                    relayIndex.remove(old.config.url)
+                }
+            }
+
+            _localRelayStatus.value = LocalRelayStatus.Connecting
+            val relay = Relay(RelayConfig(cfg.url, read = true, write = true), localClientProvider, scope)
+            localRelay = relay
+            relayIndex[cfg.url] = relay
+            bindLocalRelayCallbacks(relay)
+            collectMessages(relay)
+            relay.connect()
+            Log.d("RLC", "[Pool] local relay force-reconnect: ${cfg.url}")
+        }
+    }
+
+    /** Disconnect local relay socket but preserve references for cheap resume. */
+    fun pauseLocalRelay() {
+        synchronized(localRelayLock) {
+            val relay = localRelay ?: return
+            relay.reconnectEnabled = false
+            relay.disconnect()
+            if (localRelayConfig?.enabled == true) {
+                _localRelayStatus.value = LocalRelayStatus.Connecting
+            }
+            Log.d("RLC", "[Pool] local relay paused: ${relay.config.url}")
+        }
+    }
+
+    /** Reconnect local relay if still configured and enabled. */
+    fun resumeLocalRelay() {
+        synchronized(localRelayLock) {
+            val cfg = localRelayConfig ?: return
+            if (!cfg.enabled) return
+            val relay = localRelay
+            if (relay == null) {
+                updateLocalRelay(cfg, localRelayUserPubkey)
+                return
+            }
+            bindLocalRelayCallbacks(relay)
+            relay.reconnectEnabled = true
+            relay.resetBackoff()
+            relayIndex[cfg.url] = relay
+            if (relay.isConnected) {
+                _localRelayStatus.value = LocalRelayStatus.Connected
+            } else {
+                relay.forceDisconnect()
+                _localRelayStatus.value = LocalRelayStatus.Connecting
+                relay.connect()
+            }
+            Log.d("RLC", "[Pool] local relay resumed: ${relay.config.url}")
+        }
+    }
+
+    fun getLocalRelayUrl(): String? = localRelayConfig?.takeIf { it.enabled }?.url
+
+    /** Send a message to the local relay if configured and connected. Fire-and-forget. */
+    fun sendToLocalRelay(message: String): Boolean {
+        val relay = localRelay ?: return false
+        if (localRelayConfig?.enabled != true) return false
+        return relay.send(message)
+    }
+
+    private fun shouldForwardToLocalRelay(event: NostrEvent): Boolean {
+        val config = localRelayConfig ?: return false
+        if (!config.enabled) return false
+        if (localRelay == null) return false
+        if (event.kind !in config.kinds) return false
+        return when (config.writePolicy) {
+            LocalRelayWritePolicy.OWN_NOTES -> event.pubkey == localRelayUserPubkey
+            LocalRelayWritePolicy.TAGGED -> {
+                event.pubkey == localRelayUserPubkey ||
+                    event.tags.any { it.size >= 2 && it[0] == "p" && it[1] == localRelayUserPubkey }
+            }
+            LocalRelayWritePolicy.ALL_NOTES -> true
+        }
+    }
+
     fun disconnectAll() {
         clearAuthSessions()
         relays.forEach { it.forceDisconnect() }
@@ -1354,6 +1604,12 @@ class RelayPool(private var prefs: SharedPreferences? = null) {
         ephemeralRelays.clear()
         ephemeralLastUsed.clear()
         relayCooldowns.clear()
+        synchronized(localRelayLock) {
+            localRelay?.forceDisconnect()
+            localRelay = null
+            localRelayConfig = null
+            _localRelayStatus.value = LocalRelayStatus.Disabled
+        }
         relayIndex.clear()
         relayJobs.values.forEach { it.cancel() }
         relayJobs.clear()

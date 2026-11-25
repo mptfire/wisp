@@ -1706,6 +1706,9 @@ class WalletViewModel(
 
     // --- Relay Backup / Restore ---
 
+    /** Shared active signer injected from Navigation (reuses the live NIP-46 bunker connection). */
+    @Volatile var externalSigner: NostrSigner? = null
+
     private fun buildSigner(): NostrSigner? {
         return when (keyRepo.getSigningMode()) {
             SigningMode.LOCAL -> {
@@ -1717,6 +1720,10 @@ class WalletViewModel(
                 val pkg = keyRepo.getSignerPackage() ?: ""
                 val cr = contentResolver ?: return null
                 RemoteSigner(pubkey, cr, pkg)
+            }
+            SigningMode.BUNKER -> {
+                val pubkey = keyRepo.getPubkeyHex() ?: return null
+                externalSigner?.takeIf { it.pubkeyHex.equals(pubkey, ignoreCase = true) }
             }
             SigningMode.READ_ONLY -> null
         }

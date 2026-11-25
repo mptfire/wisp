@@ -2,8 +2,6 @@ package com.wisp.app.ui.screen
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,63 +14,72 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import kotlinx.coroutines.launch
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import com.wisp.app.ui.component.NsecPasteGuard
-import com.wisp.app.ui.component.QrScanner
-import com.wisp.app.ui.component.TorCornerButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wisp.app.R
+import com.wisp.app.nostr.ExternalSignerProtocol
+import com.wisp.app.nostr.InstalledSignerApp
+import com.wisp.app.nostr.Nip19
+import com.wisp.app.nostr.Nip46AuthBridge
+import com.wisp.app.nostr.RemoteSignerBridge
+import com.wisp.app.nostr.toHex
+import com.wisp.app.ui.component.AppNostrConnectDialog
+import com.wisp.app.ui.component.BunkerLoginDialog
+import com.wisp.app.ui.component.Nip46AuthUrlDialog
+import com.wisp.app.ui.component.NsecPasteGuard
+import com.wisp.app.ui.component.QrScanner
+import com.wisp.app.ui.component.SignerPickerDialog
+import com.wisp.app.ui.component.TorCornerButton
+import com.wisp.app.viewmodel.AuthViewModel
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sign
 import kotlin.math.sin
-import com.wisp.app.R
-import com.wisp.app.nostr.Nip19
-import com.wisp.app.nostr.RemoteSignerBridge
-import com.wisp.app.nostr.toHex
-import com.wisp.app.viewmodel.AuthViewModel
 
 @Composable
 fun AuthScreen(
@@ -86,7 +93,11 @@ fun AuthScreen(
     val error by viewModel.error.collectAsState()
     var nsecVisible by remember { mutableStateOf(false) }
     var showQrScanner by remember { mutableStateOf(false) }
-    val signerAvailable = remember { RemoteSignerBridge.isSignerAvailable(context) }
+    val availableSigners = remember { RemoteSignerBridge.listAvailableSigners(context) }
+    val signerAvailable = availableSigners.isNotEmpty()
+    var showSignerPicker by remember { mutableStateOf(false) }
+    var pendingSelectedSignerPackage by remember { mutableStateOf<String?>(null) }
+    var pendingNip46App by remember { mutableStateOf<InstalledSignerApp?>(null) }
 
     var signerLoginComplete by remember { mutableStateOf(false) }
     if (signerLoginComplete) {
@@ -99,10 +110,15 @@ fun AuthScreen(
     val signerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { activityResult ->
+        val selectedPkg = pendingSelectedSignerPackage
+        pendingSelectedSignerPackage = null
         val data = activityResult.data ?: return@rememberLauncherForActivityResult
         val rawResult = data.getStringExtra("result")?.trim() ?: return@rememberLauncherForActivityResult
-        val pkg = data.getStringExtra("package")?.takeIf { it.isNotBlank() }
-            ?: RemoteSignerBridge.resolveDefaultSignerPackage(context)
+        val pkg = RemoteSignerBridge.resolveSignedPackage(
+            returnedPackage = data.getStringExtra("package"),
+            selectedPackage = selectedPkg,
+            context = context
+        )
         val pubkeyHex = if (rawResult.startsWith("npub1")) {
             try { Nip19.npubDecode(rawResult).toHex() } catch (_: Exception) { return@rememberLauncherForActivityResult }
         } else if (rawResult.length == 64 && rawResult.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
@@ -114,6 +130,17 @@ fun AuthScreen(
         signerLoginComplete = true
     }
 
+    val pendingBunkerUri by viewModel.pendingBunkerUri.collectAsState()
+    val bunkerStatus by viewModel.bunkerStatus.collectAsState()
+    val pendingNip46AuthUrl by Nip46AuthBridge.pendingAuthUrl.collectAsState()
+    var showBunkerDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(pendingBunkerUri) {
+        val uri = pendingBunkerUri ?: return@LaunchedEffect
+        val ok = viewModel.connectWithBunkerUri(uri)
+        if (ok) onAuthenticated(false)
+    }
+
     if (showQrScanner) {
         QrScanner(
             onResult = { raw ->
@@ -122,7 +149,7 @@ fun AuthScreen(
                 if (viewModel.logIn()) onAuthenticated(false)
             },
             modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-            promptText = "Scan nsec, npub, or nprofile QR"
+            promptText = "Scan nsec, npub, bunker://, or nprofile QR"
         )
         return
     }
@@ -136,6 +163,7 @@ fun AuthScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -256,7 +284,7 @@ fun AuthScreen(
         } else OutlinedTextField(
             value = nsecInput,
             onValueChange = { viewModel.updateNsecInput(it) },
-            label = { Text("nsec, npub, recovery phrase, or ncryptsec backup") },
+            label = { Text("nsec, npub, bunker://, phrase, or ncryptsec") },
             singleLine = false,
             maxLines = 3,
             visualTransformation = if (nsecVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -287,9 +315,30 @@ fun AuthScreen(
                 onClick = {
                     if (viewModel.logIn()) onAuthenticated(false)
                 },
+                enabled = bunkerStatus == null,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(stringResource(R.string.auth_log_in))
+                if (bunkerStatus != null && !showBunkerDialog) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(bunkerStatus ?: stringResource(R.string.auth_bunker_connecting))
+                } else {
+                    Text(stringResource(R.string.auth_log_in))
+                }
+            }
+        }
+
+        fun launchInstalledSigner(signerApp: InstalledSignerApp) {
+            when (signerApp.protocol) {
+                ExternalSignerProtocol.NIP55 -> {
+                    pendingSelectedSignerPackage = signerApp.packageName
+                    signerLauncher.launch(
+                        RemoteSignerBridge.buildGetPublicKeyIntent(packageName = signerApp.packageName)
+                    )
+                }
+                ExternalSignerProtocol.NIP46 -> {
+                    pendingNip46App = signerApp
+                }
             }
         }
 
@@ -297,13 +346,77 @@ fun AuthScreen(
             Spacer(Modifier.height(12.dp))
             OutlinedButton(
                 onClick = {
-                    val intent = RemoteSignerBridge.buildGetPublicKeyIntent()
-                    signerLauncher.launch(intent)
+                    if (availableSigners.size == 1) {
+                        launchInstalledSigner(availableSigners[0])
+                    } else {
+                        showSignerPicker = true
+                    }
                 },
+                enabled = bunkerStatus == null,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(stringResource(R.string.auth_login_with_signer))
+                val label = if (availableSigners.size == 1) {
+                    stringResource(R.string.auth_login_with_specific_signer, availableSigners[0].label)
+                } else {
+                    stringResource(R.string.auth_login_with_signer)
+                }
+                Text(label)
             }
+        }
+
+        pendingNip46App?.let { targetApp ->
+            AppNostrConnectDialog(
+                signerApp = targetApp,
+                viewModel = viewModel,
+                onConnected = {
+                    pendingNip46App = null
+                    onAuthenticated(false)
+                },
+                onDismiss = {
+                    pendingNip46App = null
+                    viewModel.clearPendingBunkerUri()
+                }
+            )
+        }
+
+        Spacer(Modifier.height(4.dp))
+        TextButton(
+            onClick = { showBunkerDialog = true },
+            enabled = bunkerStatus == null
+        ) {
+            Text(
+                text = stringResource(R.string.auth_show_pairing_qr),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        if (showBunkerDialog) {
+            BunkerLoginDialog(
+                viewModel = viewModel,
+                onConnected = {
+                    showBunkerDialog = false
+                    onAuthenticated(false)
+                },
+                onDismiss = {
+                    showBunkerDialog = false
+                    viewModel.clearPendingBunkerUri()
+                }
+            )
+        }
+
+        pendingNip46AuthUrl?.let { authUrl ->
+            Nip46AuthUrlDialog(authUrl = authUrl)
+        }
+
+        if (showSignerPicker) {
+            SignerPickerDialog(
+                signers = availableSigners,
+                onSelect = { signerApp ->
+                    showSignerPicker = false
+                    launchInstalledSigner(signerApp)
+                },
+                onDismiss = { showSignerPicker = false }
+            )
         }
 
         error?.let {

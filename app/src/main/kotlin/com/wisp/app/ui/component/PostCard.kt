@@ -211,7 +211,9 @@ fun PostCard(
     var showTranslation by remember { mutableStateOf(true) }
 
     LaunchedEffect(event.id, autoTranslate, translationState.status) {
-        if (autoTranslate && translationState.status == TranslationStatus.IDLE) {
+        if (com.wisp.app.repo.TranslationRepository.IS_AVAILABLE &&
+            autoTranslate && translationState.status == TranslationStatus.IDLE
+        ) {
             onTranslate()
         }
     }
@@ -446,7 +448,7 @@ fun PostCard(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.btn_block)) },
+                            text = { Text(stringResource(R.string.btn_block), color = MaterialTheme.colorScheme.error) },
                             onClick = {
                                 menuExpanded = false
                                 onBlockAuthor()
@@ -523,30 +525,32 @@ fun PostCard(
                             clipboardManager.setText(AnnotatedString(event.toJson()))
                         }
                     )
-                    val translating = translationState.status == TranslationStatus.IDENTIFYING_LANGUAGE ||
-                        translationState.status == TranslationStatus.DOWNLOADING_MODEL ||
-                        translationState.status == TranslationStatus.TRANSLATING
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                when {
-                                    translationState.status == TranslationStatus.DONE && showTranslation -> stringResource(R.string.translate_show_original)
-                                    translationState.status == TranslationStatus.DONE && !showTranslation -> stringResource(R.string.translate_show_translation)
-                                    translationState.status == TranslationStatus.SAME_LANGUAGE -> stringResource(R.string.translate_same_language)
-                                    else -> stringResource(R.string.translate_translate)
+                    if (com.wisp.app.repo.TranslationRepository.IS_AVAILABLE) {
+                        val translating = translationState.status == TranslationStatus.IDENTIFYING_LANGUAGE ||
+                            translationState.status == TranslationStatus.DOWNLOADING_MODEL ||
+                            translationState.status == TranslationStatus.TRANSLATING
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    when {
+                                        translationState.status == TranslationStatus.DONE && showTranslation -> stringResource(R.string.translate_show_original)
+                                        translationState.status == TranslationStatus.DONE && !showTranslation -> stringResource(R.string.translate_show_translation)
+                                        translationState.status == TranslationStatus.SAME_LANGUAGE -> stringResource(R.string.translate_same_language)
+                                        else -> stringResource(R.string.translate_translate)
+                                    }
+                                )
+                            },
+                            enabled = !translating && translationState.status != TranslationStatus.SAME_LANGUAGE,
+                            onClick = {
+                                menuExpanded = false
+                                if (translationState.status == TranslationStatus.DONE) {
+                                    showTranslation = !showTranslation
+                                } else {
+                                    onTranslate()
                                 }
-                            )
-                        },
-                        enabled = !translating && translationState.status != TranslationStatus.SAME_LANGUAGE,
-                        onClick = {
-                            menuExpanded = false
-                            if (translationState.status == TranslationStatus.DONE) {
-                                showTranslation = !showTranslation
-                            } else {
-                                onTranslate()
                             }
-                        }
-                    )
+                        )
+                    }
                 }
                 if (showDeleteConfirm) {
                     AlertDialog(

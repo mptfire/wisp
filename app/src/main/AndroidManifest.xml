@@ -17,6 +17,10 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="nostrsigner" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="nostrconnect" />
+        </intent>
     </queries>
 
     <application

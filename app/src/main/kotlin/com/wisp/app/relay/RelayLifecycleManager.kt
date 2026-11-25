@@ -103,6 +103,7 @@ class RelayLifecycleManager(
         Log.d("RLC", "[Lifecycle] onAppPause — connectedCount=${relayPool.connectedCount.value}")
         relayPool.appIsActive = false
         relayPool.healthTracker?.closeAllSessions()
+        relayPool.pauseLocalRelay()
     }
 
     /**
@@ -112,6 +113,7 @@ class RelayLifecycleManager(
      */
     fun onAppResume(pausedMs: Long) {
         if (!started) return
+        relayPool.resumeLocalRelay()
         val force = pausedMs >= FORCE_THRESHOLD_MS
         val refreshFeed = pausedMs >= FEED_STALE_MS
         Log.d("RLC", "[Lifecycle] onAppResume — paused ${pausedMs/1000}s, force=$force, connectedCount=${relayPool.connectedCount.value}")

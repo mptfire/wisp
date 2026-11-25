@@ -43,6 +43,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
+data class PendingBlockTarget(
+    val pubkey: String,
+    val onConfirmed: (() -> Unit)? = null
+)
+
 /**
  * Handles user-initiated social actions: follow/block, reactions, reposts, zaps, pins, mutes.
  * Extracted from FeedViewModel to reduce its size.
@@ -85,6 +90,10 @@ class SocialActionManager(
     // Non-null while the first-follow confirmation dialog is visible (holds the target pubkey).
     private val _pendingFirstFollow = MutableStateFlow<String?>(null)
     val pendingFirstFollow: StateFlow<String?> = _pendingFirstFollow
+
+    // Non-null while the block confirmation dialog is visible.
+    private val _pendingBlockTarget = MutableStateFlow<PendingBlockTarget?>(null)
+    val pendingBlockTarget: StateFlow<PendingBlockTarget?> = _pendingBlockTarget
 
     // False while we are still checking relays; true once the check confirms no existing list.
     private val _firstFollowCheckDone = MutableStateFlow(false)
@@ -185,6 +194,21 @@ class SocialActionManager(
             relayPool.sendToWriteRelays(ClientMessage.event(event))
             contactRepo.updateFromEvent(event)
         }
+    }
+
+    fun requestBlockUser(pubkey: String, onConfirmed: (() -> Unit)? = null) {
+        _pendingBlockTarget.value = PendingBlockTarget(pubkey, onConfirmed)
+    }
+
+    fun confirmBlockUser() {
+        val target = _pendingBlockTarget.value ?: return
+        _pendingBlockTarget.value = null
+        blockUser(target.pubkey)
+        target.onConfirmed?.invoke()
+    }
+
+    fun dismissBlockUser() {
+        _pendingBlockTarget.value = null
     }
 
     fun blockUser(pubkey: String) {

@@ -255,6 +255,11 @@ fun WispNavHost(
                 val pkg = authViewModel.keyRepo.getSignerPackage() ?: ""
                 RemoteSigner(pubkey, context.contentResolver, pkg)
             }
+            SigningMode.BUNKER -> {
+                authViewModel.keyRepo.getBunkerSession()?.let { session ->
+                    com.wisp.app.nostr.Nip46Signer(session).also { it.ensureConnected() }
+                }
+            }
             SigningMode.LOCAL -> {
                 authViewModel.keyRepo.getKeypair()?.let { LocalSigner(it.privkey, it.pubkey) }
             }
@@ -263,9 +268,16 @@ fun WispNavHost(
         }
     }
 
-    // Push signer into FeedViewModel when it becomes available
+    DisposableEffect(activeSigner) {
+        onDispose {
+            (activeSigner as? com.wisp.app.nostr.Nip46Signer)?.disconnect()
+        }
+    }
+
+    // Push signer into FeedViewModel and WalletViewModel when it becomes available
     LaunchedEffect(activeSigner, accountSwitching) {
         if (!accountSwitching) {
+            walletViewModel.externalSigner = activeSigner
             if (activeSigner != null) feedViewModel.setSigner(activeSigner)
             else feedViewModel.clearSigner()
         }
@@ -1242,8 +1254,9 @@ fun WispNavHost(
                 },
                 isBlocked = pubkey in isBlockedState,
                 onBlockUser = {
-                    feedViewModel.blockUser(pubkey)
-                    navController.popBackStack()
+                    feedViewModel.requestBlockUser(pubkey) {
+                        navController.popBackStack()
+                    }
                 },
                 onUnblockUser = { feedViewModel.unblockUser(pubkey) },
                 onNoteClick = { event -> navController.navigate("thread/${event.id}") },
@@ -1313,7 +1326,7 @@ fun WispNavHost(
                     val ref = com.wisp.app.nostr.Nip30.buildSetReference(pk, dTag)
                     feedViewModel.customEmojiRepo.userEmojiList.value?.setReferences?.contains(ref) ?: false
                 },
-                onMuteUser = if (!isOwnProfile) { { feedViewModel.blockUser(pubkey) } } else null
+                onMuteUser = if (!isOwnProfile) { { feedViewModel.requestBlockUser(pubkey) } } else null
             )
             if (showProfileEmojiLibrary) {
                 com.wisp.app.ui.component.EmojiLibrarySheet(
@@ -1418,7 +1431,7 @@ fun WispNavHost(
                     navController.navigate("hashtag/${java.net.URLEncoder.encode(tag, "UTF-8")}")
                 },
                 onBlockUser = { pubkey ->
-                    feedViewModel.blockUser(pubkey)
+                    feedViewModel.requestBlockUser(pubkey)
                 },
                 userPubkey = feedViewModel.getUserPubkey(),
                 listedIds = searchListedIds,
@@ -1854,7 +1867,7 @@ fun WispNavHost(
                 zapInProgressIds = groupRoomZapInProgress,
                 onOpenEmojiLibrary = { showGroupRoomEmojiLibrary = true },
                 onFollowAuthor = { pubkey -> feedViewModel.toggleFollow(pubkey) },
-                onBlockAuthor = { pubkey -> feedViewModel.blockUser(pubkey) },
+                onBlockAuthor = { pubkey -> feedViewModel.requestBlockUser(pubkey) },
                 isFollowing = { pubkey -> feedViewModel.contactRepo.isFollowing(pubkey) },
                 noteActions = remember {
                     com.wisp.app.ui.component.NoteActions(
@@ -2069,7 +2082,7 @@ fun WispNavHost(
                     feedViewModel.toggleFollow(pubkey)
                 },
                 onBlockUser = { pubkey ->
-                    feedViewModel.blockUser(pubkey)
+                    feedViewModel.requestBlockUser(pubkey)
                 },
                 onZap = { event -> threadZapTarget = event },
                 zapAnimatingIds = threadZapAnimatingIds,
@@ -2218,7 +2231,7 @@ fun WispNavHost(
                     onNoteClick = { eventId -> navController.navigate("thread/$eventId") },
                     onAddToList = { eventId -> addToListEventId = eventId },
                     onFollowAuthor = { pubkey -> feedViewModel.toggleFollow(pubkey) },
-                    onBlockAuthor = { pubkey -> feedViewModel.blockUser(pubkey) },
+                    onBlockAuthor = { pubkey -> feedViewModel.requestBlockUser(pubkey) },
                     onPin = { eventId -> feedViewModel.togglePin(eventId) },
                     isFollowing = { pubkey -> feedViewModel.contactRepo.isFollowing(pubkey) },
                     userPubkey = feedViewModel.getUserPubkey(),
@@ -2372,7 +2385,7 @@ fun WispNavHost(
                     onNoteClick = { eventId -> navController.navigate("thread/$eventId") },
                     onAddToList = { eventId -> addToListEventId = eventId },
                     onFollowAuthor = { pubkey -> feedViewModel.toggleFollow(pubkey) },
-                    onBlockAuthor = { pubkey -> feedViewModel.blockUser(pubkey) },
+                    onBlockAuthor = { pubkey -> feedViewModel.requestBlockUser(pubkey) },
                     onPin = { eventId -> feedViewModel.togglePin(eventId) },
                     isFollowing = { pubkey -> feedViewModel.contactRepo.isFollowing(pubkey) },
                     userPubkey = feedViewModel.getUserPubkey(),
@@ -2538,7 +2551,7 @@ fun WispNavHost(
                     onNoteClick = { eventId -> navController.navigate("thread/$eventId") },
                     onAddToList = { eventId -> addToListEventId = eventId },
                     onFollowAuthor = { pubkey -> feedViewModel.toggleFollow(pubkey) },
-                    onBlockAuthor = { pubkey -> feedViewModel.blockUser(pubkey) },
+                    onBlockAuthor = { pubkey -> feedViewModel.requestBlockUser(pubkey) },
                     onPin = { eventId -> feedViewModel.togglePin(eventId) },
                     isFollowing = { pubkey -> feedViewModel.contactRepo.isFollowing(pubkey) },
                     userPubkey = feedViewModel.getUserPubkey(),
@@ -2749,7 +2762,7 @@ fun WispNavHost(
                 resolvedEmojis = liveResolvedEmojis,
                 unicodeEmojis = liveUnicodeEmojis,
                 onFollowAuthor = { pubkey -> feedViewModel.toggleFollow(pubkey) },
-                onBlockAuthor = { pubkey -> feedViewModel.blockUser(pubkey) },
+                onBlockAuthor = { pubkey -> feedViewModel.requestBlockUser(pubkey) },
                 isFollowing = { pubkey -> feedViewModel.contactRepo.isFollowing(pubkey) },
                 onEmojiUsed = { feedViewModel.customEmojiRepo.recordEmojiUsage(it) },
                 onZap = { messageId, senderPubkey ->
@@ -3030,7 +3043,7 @@ fun WispNavHost(
                 onProfileClick = { pubkey -> navController.navigate("profile/$pubkey") },
                 onRemoveBookmark = { eventId -> feedViewModel.removeBookmark(eventId) },
                 onToggleFollow = { pubkey -> feedViewModel.toggleFollow(pubkey) },
-                onBlockUser = { pubkey -> feedViewModel.blockUser(pubkey) },
+                onBlockUser = { pubkey -> feedViewModel.requestBlockUser(pubkey) },
                 translationRepo = feedViewModel.translationRepo,
                 autoTranslate = feedViewModel.interfacePrefs.isAutoTranslate(),
                 onPollVote = { pollId, optionIds -> feedViewModel.publishPollVote(pollId, optionIds) }
@@ -3081,7 +3094,7 @@ fun WispNavHost(
                     feedViewModel.removeNoteFromBookmarkSet(dTag, eventId)
                 } else null,
                 onToggleFollow = { pubkey -> feedViewModel.toggleFollow(pubkey) },
-                onBlockUser = { pubkey -> feedViewModel.blockUser(pubkey) },
+                onBlockUser = { pubkey -> feedViewModel.requestBlockUser(pubkey) },
                 translationRepo = feedViewModel.translationRepo,
                 autoTranslate = feedViewModel.interfacePrefs.isAutoTranslate()
             )
@@ -3420,7 +3433,7 @@ fun WispNavHost(
                 },
                 onZap = { event -> notifZapTarget = event },
                 onFollowToggle = { pubkey -> feedViewModel.toggleFollow(pubkey) },
-                onBlockUser = { pubkey -> feedViewModel.blockUser(pubkey) },
+                onBlockUser = { pubkey -> feedViewModel.requestBlockUser(pubkey) },
                 onMuteThread = { rootEventId -> feedViewModel.muteThread(rootEventId) },
                 onAddToList = { eventId -> addToListEventId = eventId },
                 nip05Repo = feedViewModel.nip05Repo,
@@ -3554,6 +3567,84 @@ fun WispNavHost(
             .align(Alignment.BottomCenter)
             .padding(bottom = 16.dp)
     )
+    val pendingBlockTarget by feedViewModel.pendingBlockTarget.collectAsState()
+    pendingBlockTarget?.let { target ->
+        val displayName = remember(target.pubkey) {
+            feedViewModel.eventRepo.getProfileData(target.pubkey)?.displayString
+                ?: try {
+                    com.wisp.app.nostr.Nip19.npubEncode(
+                        target.pubkey.let { hex ->
+                            ByteArray(hex.length / 2) { i ->
+                                hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+                            }
+                        }
+                    ).let { it.take(12) + "…" + it.takeLast(4) }
+                } catch (_: Exception) {
+                    target.pubkey.take(12) + "…"
+                }
+        }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { feedViewModel.dismissBlockUser() },
+            title = {
+                androidx.compose.material3.Text(
+                    androidx.compose.ui.res.stringResource(R.string.title_block_user, displayName)
+                )
+            },
+            text = {
+                androidx.compose.material3.Text(
+                    androidx.compose.ui.res.stringResource(R.string.msg_block_user_confirm)
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { feedViewModel.confirmBlockUser() }
+                ) {
+                    androidx.compose.material3.Text(
+                        androidx.compose.ui.res.stringResource(R.string.btn_block),
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { feedViewModel.dismissBlockUser() }
+                ) {
+                    androidx.compose.material3.Text(
+                        androidx.compose.ui.res.stringResource(R.string.btn_cancel)
+                    )
+                }
+            }
+        )
+    }
+    val pendingNip46AuthUrl by com.wisp.app.nostr.Nip46AuthBridge.pendingAuthUrl.collectAsState()
+    pendingNip46AuthUrl?.let { authUrl ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { com.wisp.app.nostr.Nip46AuthBridge.dismissAuthUrl() },
+            title = { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.nip46_auth_url_title)) },
+            text = { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.nip46_auth_url_body, authUrl)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        com.wisp.app.nostr.Nip46AuthBridge.dismissAuthUrl()
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(authUrl))
+                            )
+                        }
+                    }
+                ) {
+                    androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.nip46_auth_url_open))
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { com.wisp.app.nostr.Nip46AuthBridge.dismissAuthUrl() }
+                ) {
+                    androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.btn_cancel))
+                }
+            }
+        )
+    }
     NsecPasteWarningOverlay()
     } // CompositionLocalProvider
     } // Box

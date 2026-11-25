@@ -4,8 +4,12 @@ import android.content.Context
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import okhttp3.ConnectionSpec
 import okhttp3.Dispatcher
+import okhttp3.Dns
 import okhttp3.OkHttpClient
+import java.io.IOException
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.Collections
@@ -39,6 +43,7 @@ object HttpClientFactory {
     @Volatile private var downloadClient: OkHttpClient? = null
     @Volatile private var dmMediaClient: OkHttpClient? = null
     @Volatile private var relayClient: OkHttpClient? = null
+    @Volatile private var localRelayClient: OkHttpClient? = null
 
     /**
      * Every client built since the last [setTorSocks], including per-call ones
@@ -125,6 +130,52 @@ object HttpClientFactory {
         relayClient?.let { return it }
         return synchronized(this) {
             relayClient ?: createRelayClient().also { relayClient = it }
+        }
+    }
+
+    /**
+     * Direct (no-Tor) WebSocket client strictly restricted to loopback (127.0.0.1, localhost, ::1)
+     * and RFC 1918 / *.local LAN relay hosts. Tor exits cannot route back to on-device Citrine
+     * or LAN home relays; the host-guard interceptor guarantees this client can never reach clearnet.
+     */
+    fun getLocalRelayClient(): OkHttpClient {
+        localRelayClient?.let { return it }
+        return synchronized(this) {
+            localRelayClient ?: run {
+                val dispatcher = Dispatcher().apply {
+                    maxRequests = 16
+                    maxRequestsPerHost = 8
+                }
+                OkHttpClient.Builder()
+                    .dispatcher(dispatcher)
+                    .proxy(Proxy.NO_PROXY)
+                    .connectionSpecs(listOf(ConnectionSpec.CLEARTEXT, ConnectionSpec.MODERN_TLS))
+                    .dns(object : Dns {
+                        override fun lookup(hostname: String): List<InetAddress> =
+                            if (hostname.equals("localhost", ignoreCase = true)) {
+                                listOf(InetAddress.getByAddress("localhost", byteArrayOf(127, 0, 0, 1)))
+                            } else {
+                                Dns.SYSTEM.lookup(hostname)
+                            }
+                    })
+                    .connectTimeout(5, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS)
+                    .writeTimeout(5, TimeUnit.SECONDS)
+                    .pingInterval(15, TimeUnit.SECONDS)
+                    .retryOnConnectionFailure(true)
+                    .addInterceptor { chain ->
+                        val request = chain.request().newBuilder()
+                            .removeHeader("Sec-WebSocket-Extensions")
+                            .build()
+                        val host = request.url.host
+                        if (!RelayConfig.isLocalRelayHost(host)) {
+                            throw IOException("Local relay client refused non-local host: $host")
+                        }
+                        chain.proceed(request)
+                    }
+                    .build()
+                    .also { localRelayClient = it }
+            }
         }
     }
 

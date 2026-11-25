@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import com.wisp.app.nostr.Keys
 import com.wisp.app.nostr.Nip19
 import com.wisp.app.nostr.Nip06
+import com.wisp.app.nostr.Nip46
+import com.wisp.app.nostr.Nip46Connector
 import com.wisp.app.nostr.Nip49
 import com.wisp.app.nostr.hexToByteArray
 import com.wisp.app.nostr.toHex
@@ -25,6 +27,13 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     /** Set when the pasted key is an ncryptsec backup awaiting its passphrase. */
     private val _pendingNcryptsec = MutableStateFlow<String?>(null)
     val pendingNcryptsec: StateFlow<String?> = _pendingNcryptsec
+
+    /** Set when the pasted/scanned input is a `bunker://` URI awaiting async handshake. */
+    private val _pendingBunkerUri = MutableStateFlow<String?>(null)
+    val pendingBunkerUri: StateFlow<String?> = _pendingBunkerUri
+
+    private val _bunkerStatus = MutableStateFlow<String?>(null)
+    val bunkerStatus: StateFlow<String?> = _bunkerStatus
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
@@ -86,6 +95,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         } else input
         val lowered = stripped.lowercase()
         return when {
+            lowered.startsWith("bunker://") -> stageBunkerUri(stripped)
             lowered.startsWith("nsec1") -> loginWithNsec(lowered)
             lowered.startsWith("npub1") -> loginWithNpub(lowered)
             lowered.startsWith("nprofile1") -> loginWithNprofile(lowered)
@@ -93,7 +103,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             SparkRepository.normalizeMnemonic(stripped).split(Regex("\\s+")).size >= 12 -> loginWithMnemonic(stripped)
             lowered.length == 64 && lowered.all { it in '0'..'9' || it in 'a'..'f' } -> loginWithPubkeyHex(lowered)
             else -> {
-                _error.value = "Invalid key format — enter an nsec, npub, recovery phrase, or ncryptsec backup"
+                _error.value = "Invalid key format — enter an nsec, npub, bunker://, recovery phrase, or ncryptsec backup"
                 false
             }
         }
@@ -244,6 +254,77 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             _error.value = "Invalid pubkey: ${e.message}"
             false
         }
+    }
+
+    private fun stageBunkerUri(uri: String): Boolean {
+        if (Nip46.parseBunkerUri(uri) == null) {
+            _error.value = "Invalid bunker:// URI — include a valid 64-char pubkey and wss:// relay"
+            return false
+        }
+        _pendingBunkerUri.value = uri
+        _error.value = null
+        return false
+    }
+
+    fun clearPendingBunkerUri() {
+        _pendingBunkerUri.value = null
+        _bunkerStatus.value = null
+    }
+
+    suspend fun connectWithBunkerUri(uri: String): Boolean {
+        return try {
+            _error.value = null
+            _bunkerStatus.value = "Connecting to bunker…"
+            val session = Nip46Connector.connectWithBunkerUri(uri) { status ->
+                _bunkerStatus.value = status
+            }
+            loginWithBunkerSession(session)
+            _nsecInput.value = ""
+            _pendingBunkerUri.value = null
+            _bunkerStatus.value = null
+            true
+        } catch (e: Exception) {
+            _bunkerStatus.value = null
+            _pendingBunkerUri.value = null
+            _error.value = e.message ?: "Failed to connect to bunker"
+            false
+        }
+    }
+
+    suspend fun connectWithNostrConnect(
+        clientKeypair: Keys.Keypair,
+        relays: List<String>,
+        secret: String,
+        onRelaysReady: () -> Unit = {}
+    ): Boolean {
+        return try {
+            _error.value = null
+            _bunkerStatus.value = "Waiting for remote signer…"
+            val session = Nip46Connector.awaitNostrConnect(
+                clientKeypair = clientKeypair,
+                relaysList = relays,
+                secret = secret,
+                onRelaysReady = onRelaysReady
+            ) { status ->
+                _bunkerStatus.value = status
+            }
+            loginWithBunkerSession(session)
+            _bunkerStatus.value = null
+            true
+        } catch (e: Exception) {
+            _bunkerStatus.value = null
+            _error.value = e.message ?: "Nostr Connect failed"
+            false
+        }
+    }
+
+    fun loginWithBunkerSession(session: Nip46.BunkerSession) {
+        keyRepo.setKeyBackupConfirmed(true)
+        keyRepo.saveBunkerSession(session)
+        keyRepo.reloadPrefs(session.userPubkeyHex)
+        _npub.value = Nip19.npubEncode(session.userPubkeyHex.hexToByteArray())
+        _signingMode.value = SigningMode.BUNKER
+        _error.value = null
     }
 
     fun loginWithSigner(pubkeyHex: String, signerPackage: String?) {

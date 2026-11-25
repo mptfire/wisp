@@ -515,7 +515,7 @@ fun UserProfileScreen(
                                 )
                             } else {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.profile_block)) },
+                                    text = { Text(stringResource(R.string.profile_block), color = MaterialTheme.colorScheme.error) },
                                     onClick = {
                                         menuExpanded = false
                                         onBlockUser?.invoke()

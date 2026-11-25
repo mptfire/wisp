@@ -351,19 +351,6 @@ fun WispDrawerContent(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Mini-wallet stripe — replaces the plain Wallet menu row with a
-        // live-balance card (hide/show toggle sharing the dashboard's
-        // per-pubkey hidden state, or a "Set up wallet" CTA). Skipped for
-        // watch-only accounts, mirroring wisp-ios #474.
-        if (!isWatchOnly) {
-            DrawerMiniWalletRow(
-                pubkey = pubkey,
-                walletConfigured = walletConfigured,
-                balanceMsats = walletBalanceMsats,
-                onOpenWallet = onWallet
-            )
-        }
-
         NavigationDrawerItem(
             icon = { Icon(Icons.Outlined.Person, contentDescription = null) },
             label = { Text(stringResource(R.string.drawer_my_profile)) },
@@ -394,8 +381,6 @@ fun WispDrawerContent(
                 modifier = Modifier.height(48.dp).padding(horizontal = 12.dp)
             )
         }
-        // Wallet lives in the mini-wallet widget near the top of the
-        // drawer now.
         NavigationDrawerItem(
             icon = { Icon(Icons.Outlined.FormatListBulleted, contentDescription = null) },
             label = { Text(stringResource(R.string.drawer_lists)) },
@@ -450,6 +435,18 @@ fun WispDrawerContent(
             onClick = onToggleTor,
             modifier = Modifier.height(48.dp).padding(horizontal = 12.dp)
         )
+        // Mini-wallet stripe — live-balance card or "Set up wallet" CTA placed right above Settings.
+        // Skipped for watch-only accounts.
+        if (!isWatchOnly) {
+            Spacer(modifier = Modifier.height(4.dp))
+            DrawerMiniWalletRow(
+                pubkey = pubkey,
+                walletConfigured = walletConfigured,
+                balanceMsats = walletBalanceMsats,
+                onOpenWallet = onWallet
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+        }
         var settingsExpanded by remember { mutableStateOf(false) }
         LaunchedEffect(settingsExpanded) {
             if (settingsExpanded) {

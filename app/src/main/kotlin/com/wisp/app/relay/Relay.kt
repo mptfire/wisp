@@ -39,6 +39,8 @@ class Relay(
     @Volatile var isConnected = false
         private set
     var autoReconnect = true
+    /** When true, also schedule reconnect if the server sends a normal close (1000) — e.g. local Citrine restarts. */
+    @Volatile var reconnectOnNormalClose = false
     /** Set to false when app is backgrounded to suppress reconnect attempts. */
     @Volatile var reconnectEnabled = true
     @Volatile var cooldownUntil: Long = 0L
@@ -63,6 +65,11 @@ class Relay(
          *  never wait on it. Sized to allow a few parallel connects without unbounded thread growth. */
         private val connectExecutor = Executors.newFixedThreadPool(4) { r ->
             Thread(r, "relay-connect").apply { isDaemon = true }
+        }
+
+        /** Dedicated executor for local loopback/LAN relays so internet relay churn never starves Citrine. */
+        private val localConnectExecutor = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "local-relay-connect").apply { isDaemon = true }
         }
 
         fun createClient(): OkHttpClient = HttpClientFactory.createRelayClient()
@@ -93,8 +100,14 @@ class Relay(
     var onBytesReceived: ((url: String, size: Int) -> Unit)? = null
     var onBytesSent: ((url: String, size: Int) -> Unit)? = null
 
+    /** Optional direct synchronous lifecycle callbacks (avoids SharedFlow scheduling races on fast loopback connections). */
+    var onConnectionStateChanged: ((connected: Boolean) -> Unit)? = null
+    var onFailureEvent: ((RelayFailure) -> Unit)? = null
+    var onClosedEvent: ((code: Int, reason: String) -> Unit)? = null
+
     fun connect() {
-        connectExecutor.execute { connectBlocking() }
+        val executor = if (RelayConfig.isLocalRelayUrl(config.url)) localConnectExecutor else connectExecutor
+        executor.execute { connectBlocking() }
     }
 
     private fun connectBlocking() {
@@ -119,11 +132,16 @@ class Relay(
                     Log.w("Relay", "Too many connection attempts to ${config.url} " +
                         "(${MAX_ATTEMPTS_IN_WINDOW} in ${ATTEMPT_WINDOW_MS / 1000}s), " +
                         "backing off for ${BACKOFF_COOLDOWN_MS / 1000 / 60} min")
+                    val backoffMsg = "Too many reconnect attempts — cooling off for ${BACKOFF_COOLDOWN_MS / 1000 / 60} min"
                     _connectionErrors.tryEmit(ConsoleLogEntry(
                         relayUrl = config.url,
                         type = ConsoleLogType.CONN_FAILURE,
-                        message = "Too many reconnect attempts — cooling off for ${BACKOFF_COOLDOWN_MS / 1000 / 60} min"
+                        message = backoffMsg
                     ))
+                    val failure = RelayFailure(config.url, null, backoffMsg)
+                    _failures.tryEmit(failure)
+                    onFailureEvent?.invoke(failure)
+                    reconnect()
                     return
                 }
             }
@@ -135,84 +153,129 @@ class Relay(
                     .build()
             } catch (e: IllegalArgumentException) {
                 Log.w("Relay", "Invalid relay URL: ${config.url}")
+                val failure = RelayFailure(config.url, null, e.message ?: "Invalid relay URL")
+                _failures.tryEmit(failure)
+                onFailureEvent?.invoke(failure)
                 return
             }
             val socketId = System.nanoTime()
             Log.d("RLC", "[Relay] connect() creating ws#$socketId for ${config.url}")
-            webSocket = clientProvider().newWebSocket(request, object : WebSocketListener() {
-                override fun onOpen(webSocket: WebSocket, response: Response) {
-                    Log.d("RLC", "[Relay] ws#$socketId onOpen ${config.url} | isConnected was=$isConnected")
-                    isConnected = true
-                    // Successful connection — reset attempt tracking
-                    synchronized(attemptLock) { connectAttempts.clear() }
-                    _connectionState.tryEmit(true)
-                    drainPendingMessages(webSocket)
-                }
+            try {
+                webSocket = clientProvider().newWebSocket(request, object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        val isCurrent = synchronized(connectLock) { this@Relay.webSocket === webSocket }
+                        if (!isCurrent) {
+                            Log.d("RLC", "[Relay] ws#$socketId stale onOpen ${config.url} — closing")
+                            webSocket.cancel()
+                            return
+                        }
+                        Log.d("RLC", "[Relay] ws#$socketId onOpen ${config.url} | isConnected was=$isConnected")
+                        isConnected = true
+                        // Successful connection — reset attempt tracking
+                        synchronized(attemptLock) { connectAttempts.clear() }
+                        consecutiveFailures.set(0)
+                        onConnectionStateChanged?.invoke(true)
+                        _connectionState.tryEmit(true)
+                        drainPendingMessages(webSocket)
+                    }
 
-                override fun onMessage(webSocket: WebSocket, text: String) {
-                    onBytesReceived?.invoke(config.url, text.length)
-                    val msg = RelayMessage.parse(text) ?: return
-                    if (msg is RelayMessage.Auth) {
-                        if (lastChallenge != msg.challenge) {
-                            lastChallenge = msg.challenge
-                            _authChallenges.tryEmit(msg.challenge)
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        onBytesReceived?.invoke(config.url, text.length)
+                        val msg = RelayMessage.parse(text) ?: return
+                        if (msg is RelayMessage.Auth) {
+                            if (lastChallenge != msg.challenge) {
+                                lastChallenge = msg.challenge
+                                _authChallenges.tryEmit(msg.challenge)
+                            }
+                        } else {
+                            _messages.tryEmit(msg)
                         }
-                    } else {
-                        _messages.tryEmit(msg)
                     }
-                }
 
-                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    val isCurrent = synchronized(connectLock) { this@Relay.webSocket === webSocket }
-                    Log.e("RLC", "[Relay] ws#$socketId onFailure ${config.url}: ${t.javaClass.simpleName}: ${t.message} | httpCode=${response?.code} | isCurrent=$isCurrent isConnected=$isConnected")
-                    synchronized(connectLock) {
-                        if (this@Relay.webSocket === webSocket) {
-                            isConnected = false
-                            this@Relay.webSocket = null
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        val isCurrent = synchronized(connectLock) { this@Relay.webSocket === webSocket }
+                        Log.e("RLC", "[Relay] ws#$socketId onFailure ${config.url}: ${t.javaClass.simpleName}: ${t.message} | httpCode=${response?.code} | isCurrent=$isCurrent isConnected=$isConnected")
+                        synchronized(connectLock) {
+                            if (this@Relay.webSocket === webSocket) {
+                                isConnected = false
+                                this@Relay.webSocket = null
+                            }
                         }
-                    }
-                    // Only emit state/errors and reconnect for the current WebSocket.
-                    // Stale callbacks from a replaced socket must not wipe the new socket's state.
-                    if (isCurrent) {
-                        _connectionState.tryEmit(false)
-                        // Suppress error emissions during force reconnect — disconnect()
-                        // triggers onFailure for the torn-down socket, flooding the console.
-                        if (reconnectEnabled) {
-                            _connectionErrors.tryEmit(ConsoleLogEntry(
-                                relayUrl = config.url,
-                                type = ConsoleLogType.CONN_FAILURE,
-                                message = t.message ?: t.javaClass.simpleName
-                            ))
-                            _failures.tryEmit(RelayFailure(config.url, response?.code, t.message ?: t.javaClass.simpleName))
-                        }
-                        reconnect()
-                    }
-                }
-
-                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                    val isCurrent = synchronized(connectLock) { this@Relay.webSocket === webSocket }
-                    Log.d("RLC", "[Relay] ws#$socketId onClosed ${config.url} code=$code reason=$reason | isCurrent=$isCurrent isConnected=$isConnected")
-                    synchronized(connectLock) {
-                        if (this@Relay.webSocket === webSocket) {
-                            isConnected = false
-                            this@Relay.webSocket = null
-                        }
-                    }
-                    if (isCurrent) {
-                        _connectionState.tryEmit(false)
-                        if (code != 1000) {
+                        // Only emit state/errors and reconnect for the current WebSocket.
+                        // Stale callbacks from a replaced socket must not wipe the new socket's state.
+                        if (isCurrent) {
+                            val rawMsg = t.message?.takeIf { it.isNotBlank() } ?: t.javaClass.simpleName
+                            val msg = if (response != null) "HTTP ${response.code}: $rawMsg" else rawMsg
+                            // Suppress error emissions during force reconnect — disconnect()
+                            // triggers onFailure for the torn-down socket, flooding the console.
                             if (reconnectEnabled) {
+                                val failure = RelayFailure(config.url, response?.code, msg)
                                 _connectionErrors.tryEmit(ConsoleLogEntry(
                                     relayUrl = config.url,
-                                    type = ConsoleLogType.CONN_CLOSED,
-                                    message = "Code $code: $reason"
+                                    type = ConsoleLogType.CONN_FAILURE,
+                                    message = msg
                                 ))
+                                _failures.tryEmit(failure)
+                                onFailureEvent?.invoke(failure)
                             }
+                            onConnectionStateChanged?.invoke(false)
+                            _connectionState.tryEmit(false)
                             reconnect()
                         }
                     }
+
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                        Log.d("RLC", "[Relay] ws#$socketId onClosing ${config.url} code=$code reason=$reason")
+                        webSocket.close(code, reason)
+                    }
+
+                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                        val isCurrent = synchronized(connectLock) { this@Relay.webSocket === webSocket }
+                        Log.d("RLC", "[Relay] ws#$socketId onClosed ${config.url} code=$code reason=$reason | isCurrent=$isCurrent isConnected=$isConnected")
+                        synchronized(connectLock) {
+                            if (this@Relay.webSocket === webSocket) {
+                                isConnected = false
+                                this@Relay.webSocket = null
+                            }
+                        }
+                        if (isCurrent) {
+                            if (reconnectEnabled) {
+                                onClosedEvent?.invoke(code, reason)
+                            }
+                            onConnectionStateChanged?.invoke(false)
+                            _connectionState.tryEmit(false)
+                            if (code != 1000 || reconnectOnNormalClose) {
+                                if (reconnectEnabled) {
+                                    _connectionErrors.tryEmit(ConsoleLogEntry(
+                                        relayUrl = config.url,
+                                        type = ConsoleLogType.CONN_CLOSED,
+                                        message = if (reason.isNotBlank()) "Code $code: $reason" else "Code $code"
+                                    ))
+                                }
+                                reconnect()
+                            }
+                        }
+                    }
+                })
+            } catch (t: Throwable) {
+                val msg = t.message?.takeIf { it.isNotBlank() } ?: t.javaClass.simpleName
+                Log.e("RLC", "[Relay] ws#$socketId connect() threw for ${config.url}: $msg", t)
+                isConnected = false
+                webSocket = null
+                onConnectionStateChanged?.invoke(false)
+                _connectionState.tryEmit(false)
+                if (reconnectEnabled) {
+                    val failure = RelayFailure(config.url, null, msg)
+                    _connectionErrors.tryEmit(ConsoleLogEntry(
+                        relayUrl = config.url,
+                        type = ConsoleLogType.CONN_FAILURE,
+                        message = msg
+                    ))
+                    _failures.tryEmit(failure)
+                    onFailureEvent?.invoke(failure)
                 }
-            })
+                reconnect()
+            }
         }
     }
 
@@ -301,30 +364,39 @@ class Relay(
     /** Reset backoff state — call when user explicitly reconnects */
     fun resetBackoff() {
         cooldownUntil = 0L
+        consecutiveFailures.set(0)
         synchronized(attemptLock) { connectAttempts.clear() }
     }
 
     @Volatile private var pendingReconnect: ScheduledFuture<*>? = null
     @Volatile private var pendingReconnectJob: Job? = null
 
+    private val consecutiveFailures = java.util.concurrent.atomic.AtomicInteger(0)
+
+    /** Local relays back off exponentially (3s → 60s) so a frozen Citrine isn't hammered with stalled sockets. */
+    private fun reconnectDelayMs(): Long {
+        val now = System.currentTimeMillis()
+        val base = if (reconnectOnNormalClose) {
+            val n = consecutiveFailures.getAndIncrement().coerceAtMost(5)
+            minOf(3_000L shl n, 60_000L)
+        } else 3_000L
+        return maxOf(base, cooldownUntil - now)
+    }
+
     private fun reconnect() {
         if (!autoReconnect || !reconnectEnabled) return
         if (scope != null) {
             pendingReconnectJob?.cancel()
             pendingReconnectJob = scope.launch {
-                val now = System.currentTimeMillis()
-                val delayMs = maxOf(3000L, cooldownUntil - now)
-                delay(delayMs)
+                delay(reconnectDelayMs())
                 if (!isConnected) connect()
             }
         } else {
             // Fallback for relays created without a scope — use scheduler instead of
             // blocking a thread from the shared OkHttp dispatcher pool
-            val now = System.currentTimeMillis()
-            val delayMs = maxOf(3000L, cooldownUntil - now)
             pendingReconnect = reconnectScheduler.schedule({
                 if (!isConnected) connect()
-            }, delayMs, TimeUnit.MILLISECONDS)
+            }, reconnectDelayMs(), TimeUnit.MILLISECONDS)
         }
     }
 

@@ -18,9 +18,7 @@ coroutines = "1.9.0"
 profileinstaller = "1.4.1"
 splashscreen = "1.0.1"
 zxing = "3.5.3"
-mlkit-translate = "17.0.3"
-mlkit-language-id = "17.0.6"
-mlkit-barcode = "17.3.0"
+appcompat = "1.7.0"
 camerax = "1.4.1"
 objectbox = "5.2.0"
 breez-sdk-spark = "0.23.1"
@@ -78,15 +76,11 @@ biometric = { group = "androidx.biometric", name = "biometric", version.ref = "b
 profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
-mlkit-translate = { group = "com.google.mlkit", name = "translate", version.ref = "mlkit-translate" }
-mlkit-language-id = { group = "com.google.mlkit", name = "language-id", version.ref = "mlkit-language-id" }
-mlkit-barcode = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkit-barcode" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 camerax-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
 camerax-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
 camerax-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 camerax-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
-camerax-mlkit = { group = "androidx.camera", name = "camera-mlkit-vision", version.ref = "camerax" }
-kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
 objectbox-android = { group = "io.objectbox", name = "objectbox-android", version.ref = "objectbox" }
 objectbox-kotlin = { group = "io.objectbox", name = "objectbox-kotlin", version.ref = "objectbox" }
 breez-sdk-spark = { group = "breez_sdk_spark", name = "bindings-android", version.ref = "breez-sdk-spark" }

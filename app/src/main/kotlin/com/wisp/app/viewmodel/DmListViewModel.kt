@@ -45,8 +45,9 @@ class DmListViewModel(app: Application) : AndroidViewModel(app) {
         if (event.kind != 1059) return
         val repo = dmRepo ?: return
 
-        // Remote signer mode: store raw gift wraps, decrypt later when user views DMs
-        if (keyRepo.getSigningMode() == SigningMode.REMOTE) {
+        // Remote signer / NIP-46 bunker mode: store raw gift wraps, decrypt later when user views DMs
+        val mode = keyRepo.getSigningMode()
+        if (mode == SigningMode.REMOTE || mode == SigningMode.BUNKER) {
             repo.addPendingGiftWrap(event, relayUrl)
             return
         }

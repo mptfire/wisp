@@ -1,7 +1,7 @@
 {
   "name": "Fire Wisp",
-  "version": "1.3.0-fork.2",
-  "versionCode": 93,
+  "version": "1.3.0-fork.3",
+  "versionCode": 94,
   "applicationId": "de.rtard.wisp",
   "label": "Fire Wisp",
   "abi": [
@@ -9,11 +9,11 @@
   ],
   "minSdk": 26,
   "targetSdk": 36,
-  "apk": "wisp-1.3.0-fork.2.apk",
+  "apk": "wisp-1.3.0-fork.3.apk",
   "sha256": null,
   "sha256Note": "filled in the published staging bundle by dist/publish.sh",
   "certSha256": "3b99014bdceabeaa0575d8c6aac39150d6fdde78371140384789e0eb3590256a",
-  "released": "2026-11-24",
+  "released": "2026-11-25",
   "source": "https://github.com/mptfire/wisp/tree/release/v1.3.0-fork.1",
   "notes": "release-notes.md"
 }

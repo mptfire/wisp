@@ -206,6 +206,8 @@ fun KeysScreen(
 
             if (signingMode == SigningMode.REMOTE) {
                 RemoteSignerSection(keyRepository = keyRepository)
+            } else if (signingMode == SigningMode.BUNKER) {
+                BunkerSignerSection(keyRepository = keyRepository)
             } else if (keyRepository.isReadOnly()) {
                 Text(
                     text = stringResource(R.string.settings_private_key),
@@ -433,6 +435,95 @@ private fun NsecQrDialog(nsec: String, avatarUrl: String? = null, onDismiss: () 
             TextButton(onClick = onDismiss) { Text("Done") }
         }
     )
+}
+
+@Composable
+private fun BunkerSignerSection(keyRepository: KeyRepository) {
+    val session = remember { keyRepository.getBunkerSession() }
+    var refreshTick by remember { mutableStateOf(0) }
+    var health by remember { mutableStateOf(SignerHealth.Checking) }
+
+    LaunchedEffect(refreshTick, session) {
+        if (session == null) {
+            health = SignerHealth.Unavailable
+            return@LaunchedEffect
+        }
+        health = SignerHealth.Checking
+        val tester = com.wisp.app.nostr.Nip46Signer(session)
+        health = try {
+            if (tester.ping(timeoutMs = 10_000L)) SignerHealth.Available else SignerHealth.Unavailable
+        } catch (_: Exception) {
+            SignerHealth.Unavailable
+        } finally {
+            tester.disconnect()
+        }
+    }
+
+    Text(
+        text = stringResource(R.string.settings_bunker_signer),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = stringResource(R.string.settings_bunker_signer_description),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HealthDot(health = health)
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = when (health) {
+                    SignerHealth.Checking -> stringResource(R.string.settings_remote_signer_status_checking)
+                    SignerHealth.Available -> stringResource(R.string.settings_remote_signer_status_available)
+                    SignerHealth.Unavailable -> stringResource(R.string.settings_remote_signer_status_unavailable)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedButton(
+                onClick = { refreshTick++ },
+                enabled = health != SignerHealth.Checking
+            ) {
+                Icon(
+                    Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(stringResource(R.string.settings_remote_signer_refresh))
+            }
+        }
+    }
+
+    if (session != null) {
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = stringResource(R.string.settings_bunker_relays),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                session.relays.forEach { relayUrl ->
+                    Text(
+                        text = relayUrl,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

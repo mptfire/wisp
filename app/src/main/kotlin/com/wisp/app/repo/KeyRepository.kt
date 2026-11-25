@@ -6,8 +6,10 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.wisp.app.nostr.Keys
 import com.wisp.app.nostr.Nip19
+import com.wisp.app.nostr.Nip46
 import com.wisp.app.nostr.hexToByteArray
 import com.wisp.app.nostr.toHex
+import com.wisp.app.relay.LocalRelayConfig
 import com.wisp.app.relay.RelayConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +21,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.encodeToString
 
-enum class SigningMode { LOCAL, REMOTE, READ_ONLY }
+enum class SigningMode { LOCAL, REMOTE, BUNKER, READ_ONLY }
 
 @Serializable
 data class AccountInfo(
@@ -62,6 +64,9 @@ class KeyRepository(private val context: Context) {
     private val _blockedRelays = MutableStateFlow(loadBlockedRelays())
     val blockedRelaysFlow: StateFlow<List<String>> = _blockedRelays
 
+    private val _localRelay = MutableStateFlow(loadLocalRelay())
+    val localRelayFlow: StateFlow<LocalRelayConfig?> = _localRelay
+
     // Strong reference to prevent GC — listener syncs flows when prefs change from any instance
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
@@ -69,6 +74,7 @@ class KeyRepository(private val context: Context) {
             "dm_relays" -> _dmRelays.value = loadDmRelays()
             "search_relays" -> _searchRelays.value = loadSearchRelays()
             "blocked_relays" -> _blockedRelays.value = loadBlockedRelays()
+            "local_relay" -> _localRelay.value = loadLocalRelay()
         }
     }
 
@@ -114,7 +120,13 @@ class KeyRepository(private val context: Context) {
 
     fun getActivePubkey(): String? = encPrefs.getString("active_pubkey", null)
 
-    fun addAccount(pubkeyHex: String, signingMode: SigningMode, privkeyHex: String? = null, signerPackage: String? = null) {
+    fun addAccount(
+        pubkeyHex: String,
+        signingMode: SigningMode,
+        privkeyHex: String? = null,
+        signerPackage: String? = null,
+        bunkerSessionJson: String? = null
+    ) {
         val accounts = loadAccountList().toMutableList()
         // Remove existing entry for this pubkey (re-login scenario)
         accounts.removeAll { it.pubkeyHex == pubkeyHex }
@@ -133,6 +145,11 @@ class KeyRepository(private val context: Context) {
             editor.putString("signer_package_$pubkeyHex", signerPackage)
         } else {
             editor.remove("signer_package_$pubkeyHex")
+        }
+        if (bunkerSessionJson != null) {
+            editor.putString("bunker_session_$pubkeyHex", bunkerSessionJson)
+        } else {
+            editor.remove("bunker_session_$pubkeyHex")
         }
         editor.apply()
         _accounts.value = accounts
@@ -153,15 +170,24 @@ class KeyRepository(private val context: Context) {
                 val privkey = encPrefs.getString("privkey_$pubkeyHex", null)
                 editor.putString("privkey", privkey)
                 editor.remove("signer_package")
+                editor.remove("bunker_session")
             }
             SigningMode.REMOTE -> {
                 val signerPkg = encPrefs.getString("signer_package_$pubkeyHex", null)
                 editor.remove("privkey")
                 editor.putString("signer_package", signerPkg)
+                editor.remove("bunker_session")
+            }
+            SigningMode.BUNKER -> {
+                val bunkerJson = encPrefs.getString("bunker_session_$pubkeyHex", null)
+                editor.remove("privkey")
+                editor.remove("signer_package")
+                editor.putString("bunker_session", bunkerJson)
             }
             SigningMode.READ_ONLY -> {
                 editor.remove("privkey")
                 editor.remove("signer_package")
+                editor.remove("bunker_session")
             }
         }
         editor.apply()
@@ -176,6 +202,7 @@ class KeyRepository(private val context: Context) {
 
         editor.remove("privkey_$pubkeyHex")
         editor.remove("signer_package_$pubkeyHex")
+        editor.remove("bunker_session_$pubkeyHex")
 
         // If removing the active account, clear legacy keys
         if (getPubkeyHex() == pubkeyHex) {
@@ -183,6 +210,7 @@ class KeyRepository(private val context: Context) {
                 .remove("privkey")
                 .remove("signing_mode")
                 .remove("signer_package")
+                .remove("bunker_session")
                 .remove("active_pubkey")
         }
         editor.apply()
@@ -243,6 +271,7 @@ class KeyRepository(private val context: Context) {
             .putString("pubkey", pubHex)
             .putString("signing_mode", SigningMode.LOCAL.name)
             .remove("signer_package")
+            .remove("bunker_session")
             .apply()
         addAccount(pubHex, SigningMode.LOCAL, privkeyHex = privHex)
     }
@@ -259,8 +288,30 @@ class KeyRepository(private val context: Context) {
             .putString("signing_mode", SigningMode.REMOTE.name)
             .putString("signer_package", signerPackage)
             .remove("privkey")
+            .remove("bunker_session")
             .apply()
         addAccount(pubkeyHex, SigningMode.REMOTE, signerPackage = signerPackage)
+    }
+
+    fun saveBunkerSession(session: Nip46.BunkerSession) {
+        val encoded = json.encodeToString(session)
+        encPrefs.edit()
+            .putString("pubkey", session.userPubkeyHex)
+            .putString("signing_mode", SigningMode.BUNKER.name)
+            .putString("bunker_session", encoded)
+            .remove("privkey")
+            .remove("signer_package")
+            .apply()
+        addAccount(session.userPubkeyHex, SigningMode.BUNKER, bunkerSessionJson = encoded)
+    }
+
+    fun getBunkerSession(): Nip46.BunkerSession? {
+        val encoded = encPrefs.getString("bunker_session", null) ?: return null
+        return try {
+            json.decodeFromString<Nip46.BunkerSession>(encoded)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun savePubkeyReadOnly(pubkeyHex: String) {
@@ -269,6 +320,7 @@ class KeyRepository(private val context: Context) {
             .putString("signing_mode", SigningMode.READ_ONLY.name)
             .remove("privkey")
             .remove("signer_package")
+            .remove("bunker_session")
             .apply()
         addAccount(pubkeyHex, SigningMode.READ_ONLY)
     }
@@ -320,7 +372,7 @@ class KeyRepository(private val context: Context) {
         _dmRelays.value = loadDmRelays()
         _searchRelays.value = loadSearchRelays()
         _blockedRelays.value = loadBlockedRelays()
-        prefs.edit().remove("local_relay").apply()
+        _localRelay.value = loadLocalRelay()
     }
 
     fun saveRelays(relays: List<RelayConfig>) {
@@ -333,10 +385,35 @@ class KeyRepository(private val context: Context) {
     private fun loadRelays(): List<RelayConfig> {
         val str = prefs.getString("relays", null) ?: return RelayConfig.DEFAULTS
         return try {
-            json.decodeFromString<List<RelayConfig>>(str)
+            val loaded = json.decodeFromString<List<RelayConfig>>(str)
+            val migrated = migrateLegacyRelays(loaded)
+            if (migrated !== loaded) {
+                prefs.edit().putString("relays", json.encodeToString(migrated)).apply()
+            }
+            migrated
         } catch (_: Exception) {
             RelayConfig.DEFAULTS
         }
+    }
+
+    private fun migrateLegacyRelays(relays: List<RelayConfig>): List<RelayConfig> {
+        val hasLegacy = relays.any {
+            it.url.trimEnd('/').equals(RelayConfig.LEGACY_FIREWISP_RELAY, ignoreCase = true)
+        }
+        if (!hasLegacy) return relays
+        val seen = HashSet<String>()
+        val result = ArrayList<RelayConfig>(relays.size)
+        for (relay in relays) {
+            val normalizedUrl = if (relay.url.trimEnd('/').equals(RelayConfig.LEGACY_FIREWISP_RELAY, ignoreCase = true)) {
+                RelayConfig.CANONICAL_FIREWISP_RELAY
+            } else {
+                relay.url
+            }
+            if (seen.add(normalizedUrl)) {
+                result.add(if (normalizedUrl == relay.url) relay else relay.copy(url = normalizedUrl))
+            }
+        }
+        return result
     }
 
     fun saveDmRelays(urls: List<String>) {
@@ -373,6 +450,27 @@ class KeyRepository(private val context: Context) {
     private fun loadBlockedRelays(): List<String> {
         val str = prefs.getString("blocked_relays", null) ?: return emptyList()
         return try { json.decodeFromString(str) } catch (_: Exception) { emptyList() }
+    }
+
+    fun saveLocalRelay(config: LocalRelayConfig?) {
+        if (config == null) {
+            prefs.edit().remove("local_relay").apply()
+        } else {
+            prefs.edit().putString("local_relay", json.encodeToString(config)).apply()
+        }
+        _localRelay.value = config
+    }
+
+    fun getLocalRelay(): LocalRelayConfig? = _localRelay.value
+
+    private fun loadLocalRelay(): LocalRelayConfig? {
+        val str = prefs.getString("local_relay", null) ?: return null
+        return try {
+            val loaded = json.decodeFromString<LocalRelayConfig>(str)
+            if (RelayConfig.isLocalRelayUrl(loaded.url)) loaded else null
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun isOnboardingComplete(): Boolean {

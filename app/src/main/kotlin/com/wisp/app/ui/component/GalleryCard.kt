@@ -395,7 +395,7 @@ fun GalleryCard(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.btn_block)) },
+                            text = { Text(stringResource(R.string.btn_block), color = MaterialTheme.colorScheme.error) },
                             onClick = {
                                 menuExpanded = false
                                 onBlockAuthor()

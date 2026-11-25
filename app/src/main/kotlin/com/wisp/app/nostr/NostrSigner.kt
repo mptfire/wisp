@@ -218,18 +218,68 @@ class RemoteSigner(
     }
 }
 
+enum class ExternalSignerProtocol {
+    /** Local Android IPC signer (`nostrsigner:` — e.g. Amber, Primal, Cambium). */
+    NIP55,
+    /** Remote/app-to-app NIP-46 bunker pairing (`nostrconnect:` — e.g. Amethyst). */
+    NIP46
+}
+
 /**
- * Helpers for NIP-55 signer discovery and login (intent-based, only used once at login time).
+ * An installed Android external signer app discovered via `nostrsigner:` (NIP-55)
+ * or `nostrconnect:` (NIP-46).
+ */
+data class InstalledSignerApp(
+    val packageName: String,
+    val label: String,
+    val protocol: ExternalSignerProtocol = ExternalSignerProtocol.NIP55
+)
+
+/**
+ * Helpers for NIP-55 and NIP-46 signer discovery and login.
  */
 object RemoteSignerBridge {
     const val DEFAULT_PERMISSIONS =
         """[{"type":"sign_event","kind":0},{"type":"sign_event","kind":1},{"type":"sign_event","kind":3},{"type":"sign_event","kind":5},{"type":"sign_event","kind":6},{"type":"sign_event","kind":7},{"type":"sign_event","kind":13},{"type":"sign_event","kind":16},{"type":"sign_event","kind":1111},{"type":"sign_event","kind":9734},{"type":"sign_event","kind":10000},{"type":"sign_event","kind":10001},{"type":"sign_event","kind":10002},{"type":"sign_event","kind":10003},{"type":"sign_event","kind":10030},{"type":"sign_event","kind":10050},{"type":"sign_event","kind":10063},{"type":"sign_event","kind":22242},{"type":"sign_event","kind":24242},{"type":"sign_event","kind":30000},{"type":"sign_event","kind":30003},{"type":"sign_event","kind":30030},{"type":"sign_event","kind":30078},{"type":"nip44_encrypt"},{"type":"nip44_decrypt"}]"""
 
-    fun isSignerAvailable(context: Context): Boolean {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("nostrsigner:"))
-        val infos = context.packageManager.queryIntentActivities(intent, 0)
-        return infos.isNotEmpty()
+    private fun queryScheme(
+        context: Context,
+        scheme: String,
+        protocol: ExternalSignerProtocol
+    ): List<InstalledSignerApp> {
+        val pm = context.packageManager
+        val uris = if (scheme == "nostrconnect") {
+            listOf(Uri.parse("nostrconnect://"), Uri.parse("nostrconnect:"))
+        } else {
+            listOf(Uri.parse("$scheme:"))
+        }
+        return uris.flatMap { uri ->
+            val intent = Intent(Intent.ACTION_VIEW, uri)
+            pm.queryIntentActivities(intent, 0).mapNotNull { info ->
+                val pkg = info.activityInfo?.packageName?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val label = runCatching { info.loadLabel(pm).toString() }
+                    .getOrNull()
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                    ?: pkg
+                InstalledSignerApp(packageName = pkg, label = label, protocol = protocol)
+            }
+        }
     }
+
+    /**
+     * Discovers all installed NIP-55 (`nostrsigner:`) and NIP-46 (`nostrconnect:`) signer apps.
+     * When an app supports both schemes, prefers local NIP-55 IPC over relay-based NIP-46.
+     */
+    fun listAvailableSigners(context: Context): List<InstalledSignerApp> {
+        val nip55 = queryScheme(context, "nostrsigner", ExternalSignerProtocol.NIP55)
+        val nip46 = queryScheme(context, "nostrconnect", ExternalSignerProtocol.NIP46)
+        return (nip55 + nip46)
+            .distinctBy { it.packageName }
+            .sortedBy { it.label.lowercase() }
+    }
+
+    fun isSignerAvailable(context: Context): Boolean = listAvailableSigners(context).isNotEmpty()
 
     fun resolveDefaultSignerPackage(context: Context): String? {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("nostrsigner:"))
@@ -237,13 +287,40 @@ object RemoteSignerBridge {
             .firstOrNull()?.activityInfo?.packageName
     }
 
-    fun buildGetPublicKeyIntent(permissions: String? = DEFAULT_PERMISSIONS): Intent {
+    fun resolveSignedPackage(
+        returnedPackage: String?,
+        selectedPackage: String?,
+        context: Context
+    ): String? {
+        return returnedPackage?.trim()?.takeIf { it.isNotBlank() }
+            ?: selectedPackage?.trim()?.takeIf { it.isNotBlank() }
+            ?: resolveDefaultSignerPackage(context)
+    }
+
+    fun buildGetPublicKeyIntent(
+        permissions: String? = DEFAULT_PERMISSIONS,
+        packageName: String? = null
+    ): Intent {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("nostrsigner:"))
         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        if (!packageName.isNullOrBlank()) {
+            intent.`package` = packageName
+        }
         intent.putExtra("type", "get_public_key")
         if (permissions != null) {
             intent.putExtra("permissions", permissions)
         }
         return intent
+    }
+
+    fun buildNostrConnectIntent(
+        nostrConnectUri: String,
+        packageName: String? = null
+    ): Intent {
+        return Intent(Intent.ACTION_VIEW, Uri.parse(nostrConnectUri)).apply {
+            if (!packageName.isNullOrBlank()) {
+                `package` = packageName
+            }
+        }
     }
 }

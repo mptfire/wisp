@@ -70,7 +70,33 @@
     <!-- Auth Screen -->
     <string name="auth_sign_up">Sign Up</string>
     <string name="auth_log_in">Log In</string>
-    <string name="auth_login_with_signer">Sign in with Amber / Signer</string>
+    <string name="auth_login_with_signer">Sign in with Signer App</string>
+    <string name="auth_login_with_specific_signer">Sign in with %s</string>
+    <string name="auth_choose_signer_title">Choose Signer App</string>
+    <string name="auth_choose_signer_subtitle">Select which installed signer app (NIP-55 or NIP-46) to use for this account.</string>
+    <string name="auth_signer_protocol_nip55">NIP-55</string>
+    <string name="auth_signer_protocol_nip46">NIP-46</string>
+    <string name="auth_nip46_app_title">Connecting to %s</string>
+    <string name="auth_nip46_app_desc">Approve the Nostr Connect pairing request in %s, then return to Fire Wisp.</string>
+    <string name="auth_nip46_reopen_app">Open %s</string>
+    <string name="auth_login_with_bunker">Sign in with Bunker (NIP-46)</string>
+    <string name="auth_show_pairing_qr">Show pairing QR</string>
+    <string name="auth_bunker_dialog_title">Connect NIP-46 Bunker</string>
+    <string name="auth_bunker_tab_uri">Bunker URI</string>
+    <string name="auth_bunker_tab_qr">QR / Link</string>
+    <string name="auth_bunker_uri_desc">Paste a bunker:// token from nsec.app, nsecBunker, nak bunker, or Amber.</string>
+    <string name="auth_bunker_qr_desc">Scan with your remote signer app (nsec.app, Amber, Primal) or copy/open the link below.</string>
+    <string name="auth_bunker_connect">Connect</string>
+    <string name="auth_bunker_connecting">Connecting to bunker…</string>
+    <string name="auth_bunker_open_signer">Open Signer</string>
+    <string name="auth_bunker_link_copied">Nostr Connect link copied</string>
+    <string name="auth_bunker_no_handler">No app on this device handles nostrconnect:// links — copy or scan the QR instead</string>
+    <string name="nip46_auth_url_title">Approve in Remote Signer</string>
+    <string name="nip46_auth_url_body">Your NIP-46 bunker requested interactive confirmation at:\n\n%s</string>
+    <string name="nip46_auth_url_open">Open Approval Page</string>
+    <string name="settings_bunker_signer">NIP-46 Bunker Signer</string>
+    <string name="settings_bunker_signer_description">Signing and DM encryption are delegated to your remote NIP-46 bunker. No private key is stored on this device.</string>
+    <string name="settings_bunker_relays">Bunker Relays</string>
     <string name="auth_or_log_in_with_key">Or log in with your key</string>
     <string name="auth_nsec_or_npub">nsec or npub…</string>
     <string name="auth_wisp">fire wisp</string>
@@ -677,6 +703,30 @@
     <string name="broadcast_search_relays">Broadcast Search Relays</string>
     <string name="broadcast_blocked_relays">Broadcast Blocked Relays</string>
 
+    <!-- Local Relay (Citrine / LAN) -->
+    <string name="local_relay_my_relay">My Local Relay</string>
+    <string name="local_relay_description">Connect to an on-device relay like Citrine (ws://127.0.0.1:4869) or a private LAN relay (192.168.x.x / 10.x.x.x / *.local). Never published in NIP-65.</string>
+    <string name="local_relay_tor_note">Tor is active: local relays connect directly over loopback/LAN without Tor.</string>
+    <string name="local_relay_url_hint">ws://127.0.0.1:4869</string>
+    <string name="local_relay_citrine_preset">Use Citrine (ws://127.0.0.1:4869)</string>
+    <string name="local_relay_status_connected">Connected</string>
+    <string name="local_relay_status_connecting">Connecting…</string>
+    <string name="local_relay_status_paused">Disabled</string>
+    <string name="local_relay_status_error">Not connected: %1$s</string>
+    <string name="local_relay_error_hint">Make sure Citrine or your local relay is running and reachable on this device/network.</string>
+    <string name="local_relay_reconnect">Reconnect</string>
+    <string name="local_relay_remove">Remove Local Relay</string>
+    <string name="local_relay_write_policy">Write Policy</string>
+    <string name="local_relay_own_notes">My Notes</string>
+    <string name="local_relay_tagged">My Notes and Notes I\'m Tagged In</string>
+    <string name="local_relay_all_notes">All Notes</string>
+    <string name="local_relay_kinds">Event Kinds</string>
+    <string name="local_relay_kind_notes">Notes (1)</string>
+    <string name="local_relay_kind_dms">DMs (1059)</string>
+    <string name="local_relay_kind_zaps">Zaps (9735)</string>
+    <string name="local_relay_add_kind">Add Kind</string>
+    <string name="local_relay_invalid_url">Enter a local loopback (127.0.0.1 / localhost) or LAN (192.168.x.x / 10.x.x.x / *.local) ws:// URL</string>
+
     <!-- Post Card -->
     <string name="post_retweeted">reposted</string>
     <string name="post_and_others_retweeted">and %d others reposted</string>
@@ -898,6 +948,8 @@
     <string name="msg_delete_group_confirm">Permanently delete this chat room? This cannot be undone.</string>
     <string name="title_delete_note">Delete note?</string>
     <string name="msg_delete_note_confirm">Send a deletion request to relays for this note? This cannot be guaranteed.</string>
+    <string name="title_block_user">Block %s?</string>
+    <string name="msg_block_user_confirm">You will no longer see their posts, replies, notifications, or DMs. You can unblock them anytime in Settings → Safety.</string>
     <string name="label_notifications">Notifications</string>
     <string name="label_notifications_on">On — new messages will be tracked</string>
     <string name="label_notifications_off">Off — tap to enable</string>

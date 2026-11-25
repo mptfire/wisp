@@ -15,12 +15,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,6 +60,7 @@ fun OnboardingBackupKeyScreen(
     var revealed by remember { mutableStateOf(false) }
     var confirmedSaved by remember { mutableStateOf(false) }
     var showEncryptDialog by remember { mutableStateOf(false) }
+    var showCredentialWarning by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -114,19 +117,9 @@ fun OnboardingBackupKeyScreen(
             OutlinedButton(onClick = { showEncryptDialog = true }) { Text("Encrypted backup") }
         }
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = {
-            val activity = context as? android.app.Activity
-            if (activity != null && nsec != null && npub != null) {
-                scope.launch {
-                    val saved = NostrCredentialSaver.saveNsec(activity, npub!!, nsec)
-                    Toast.makeText(
-                        context,
-                        if (saved) "Saved to password manager" else "Could not save to password manager",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }) { Text("Save to password manager") }
+        OutlinedButton(onClick = { showCredentialWarning = true }) {
+            Text("Save to password manager")
+        }
 
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -142,6 +135,44 @@ fun OnboardingBackupKeyScreen(
             enabled = confirmedSaved,
             modifier = Modifier.fillMaxWidth().height(48.dp)
         ) { Text("Continue") }
+    }
+
+    if (showCredentialWarning) {
+        AlertDialog(
+            onDismissRequest = { showCredentialWarning = false },
+            title = { Text("Save to system password manager?") },
+            text = {
+                Text(
+                    "This uses Android's system Credential Manager. On stock Android phones, " +
+                        "the default provider is usually Google Password Manager, which may sync your secret key to Google's cloud.\n\n" +
+                        "Only continue if you trust your configured provider (such as KeePassDX, Bitwarden, or Proton Pass). " +
+                        "Otherwise, use Encrypted backup (ncryptsec) instead."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCredentialWarning = false
+                    val activity = context as? android.app.Activity
+                    if (activity != null && nsec != null && npub != null) {
+                        scope.launch {
+                            val saved = NostrCredentialSaver.saveNsec(activity, npub!!, nsec)
+                            Toast.makeText(
+                                context,
+                                if (saved) "Saved to password manager" else "Could not save to password manager",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }) {
+                    Text("Continue")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCredentialWarning = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showEncryptDialog) {

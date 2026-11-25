@@ -160,10 +160,6 @@ import com.wisp.app.ui.theme.WispThemeColors
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
@@ -1808,30 +1804,23 @@ private fun SendInputContent(
         uri ?: return@rememberLauncherForActivityResult
         try {
             val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, _, _ ->
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                }
             } else {
                 @Suppress("DEPRECATION")
                 MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
             }
-            val image = InputImage.fromBitmap(bitmap, 0)
-            val options = BarcodeScannerOptions.Builder()
-                .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-                .build()
-            val scanner = BarcodeScanning.getClient(options)
-            scanner.process(image)
-                .addOnSuccessListener { barcodes ->
-                    val value = barcodes.firstOrNull()?.rawValue
-                    if (value != null) {
-                        // Strip common URI prefixes
-                        val cleaned = value
-                            .removePrefix("lightning:")
-                            .removePrefix("LIGHTNING:")
-                            .removePrefix("bitcoin:")
-                            .removePrefix("BITCOIN:")
-                        onInputChange(cleaned)
-                    }
-                }
-                .addOnCompleteListener { scanner.close() }
+            val value = com.wisp.app.ui.component.QrCodeDecoder.decodeBitmap(bitmap)
+            if (value != null) {
+                // Strip common URI prefixes
+                val cleaned = value
+                    .removePrefix("lightning:")
+                    .removePrefix("LIGHTNING:")
+                    .removePrefix("bitcoin:")
+                    .removePrefix("BITCOIN:")
+                onInputChange(cleaned)
+            }
         } catch (e: Exception) {
             Log.e("WalletScreen", "Failed to decode QR from image", e)
         }

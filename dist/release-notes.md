@@ -1,3 +1,54 @@
+## Fire Wisp 1.3.0-fork.3 (versionCode 94)
+
+- **Native NIP-46 Remote Signer (Bunker) & Unified Signer Picker**:
+  - Sign in with any NIP-46 remote bunker via `bunker://` URI (paste or QR scan)
+    or client-initiated `nostrconnect://` QR / deep-link pairing (NIP-44 v2
+    default with transparent NIP-04 fallback, sender verification, and safe
+    `https://` `auth_url` approval handling).
+  - Unified external Signer Picker discovers both installed NIP-55 (`nostrsigner:`
+    — Amber, Primal, Cambium) and NIP-46 (`nostrconnect:` — Amethyst's built-in
+    bunker) apps, allowing 1-tap pairing directly from the sign-in screen.
+  - Multi-account encrypted persistence (`SigningMode.BUNKER`), lazy NIP-17 DM
+    decryption, Tor-compatible relay routing, and a live ping health check under
+    Settings → Keys.
+- **Local Relay Support (Citrine & LAN)**:
+  - Restored the **Local** tab under Relays with a 1-tap **Citrine** preset
+    (`ws://127.0.0.1:4869`), private LAN relay support (`192.168.x.x`,
+    `10.x.x.x`, `172.16-31.x.x`, `*.local`), live connection status, error
+    reporting, 1-tap **Reconnect**, write policy controls, event kind filters,
+    and `"My Local Relay"` in the Feed relay picker.
+  - Dedicated host-guarded local WebSocket client bypasses Tor strictly for
+    validated loopback/LAN hosts so Citrine works cleanly with Tor on or off
+    and never leaks local relays to NIP-65 (`kind: 10002`).
+- **Drawer Menu Layout**:
+  - Moved the **Set up wallet** / live balance row directly above **Settings**
+    in the side navigation drawer.
+- **Zero-Google Privacy Hardening (Full ML Kit & Play Services Removal)**:
+  - Replaced Google ML Kit barcode scanning (`mlkit:barcode-scanning`,
+    `camera-mlkit-vision`) in the camera QR scanner and wallet gallery QR
+    importer with pure open-source `zxing-core` (including inverted dark-mode
+    QR support and background-thread frame decoding).
+  - Removed Google ML Kit translation and language-id (`mlkit:translate`,
+    `mlkit:language-id`, `kotlinx-coroutines-play-services`) and hid the
+    in-app Translate UI, stripping all remaining `com.google.mlkit`,
+    `com.google.android.gms`, `com.google.firebase`, and
+    `com.google.android.datatransport` (Clearcut telemetry) SDKs and native
+    `.so` blobs from the APK.
+  - Hardened Android Credential Manager (`NostrCredentialSaver`): removed
+    automatic credential-picker triggering when focusing the login field, and
+    added a clear privacy warning before saving an `nsec` to the system
+    password manager (noting Google Password Manager is the default on stock
+    Android unless KeePassDX/Bitwarden/Proton Pass is configured).
+- **Block Confirmation Dialog**:
+  - Every Block option across Feed, Thread, Profile, Search, Notifications,
+    Bookmarks, Live Chat, and Group Chat now displays a confirmation prompt with
+    the user's name before blocking and purging.
+- **Canonical Fire Wisp Relay**:
+  - Updated default Fire Wisp relay to `wss://relay.firewisp.de` with automatic
+    migration for existing accounts still referencing `wss://firewisp.relay.rtard.de`.
+
+---
+
 ## Fire Wisp 1.3.0-fork.2 (versionCode 93)
 
 - **Android Share Target (`ACTION_SEND` / `ACTION_SEND_MULTIPLE`)**:

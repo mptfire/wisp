@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,10 +43,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Reusable QR code scanner. Requests camera permission, shows a CameraX preview
@@ -61,7 +60,12 @@ fun QrScanner(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var hasCameraPermission by remember { mutableStateOf(false) }
-    var scanned by remember { mutableStateOf(false) }
+    val scanned = remember { AtomicBoolean(false) }
+    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
+
+    DisposableEffect(Unit) {
+        onDispose { analysisExecutor.shutdown() }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -128,31 +132,21 @@ fun QrScanner(
                                 it.surfaceProvider = previewView.surfaceProvider
                             }
 
-                            val options = BarcodeScannerOptions.Builder()
-                                .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-                                .build()
-                            val scanner = BarcodeScanning.getClient(options)
-
+                            val mainExecutor = ContextCompat.getMainExecutor(ctx)
                             val analysis = ImageAnalysis.Builder()
                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .build()
-                            analysis.setAnalyzer(ContextCompat.getMainExecutor(ctx)) { imageProxy ->
-                                @androidx.camera.core.ExperimentalGetImage
-                                val mediaImage = imageProxy.image
-                                if (mediaImage != null && !scanned) {
-                                    val inputImage = InputImage.fromMediaImage(
-                                        mediaImage, imageProxy.imageInfo.rotationDegrees
-                                    )
-                                    scanner.process(inputImage)
-                                        .addOnSuccessListener { barcodes ->
-                                            val value = barcodes.firstOrNull()?.rawValue
-                                            if (value != null && !scanned) {
-                                                scanned = true
-                                                onResult(value)
-                                            }
+                            analysis.setAnalyzer(analysisExecutor) { imageProxy ->
+                                try {
+                                    if (!scanned.get()) {
+                                        val value = QrCodeDecoder.decodeImageProxy(imageProxy)
+                                        if (value != null && scanned.compareAndSet(false, true)) {
+                                            mainExecutor.execute { onResult(value) }
                                         }
-                                        .addOnCompleteListener { imageProxy.close() }
-                                } else {
+                                    }
+                                } catch (e: Exception) {
+                                    Log.w("QrScanner", "QR frame decode failed", e)
+                                } finally {
                                     imageProxy.close()
                                 }
                             }

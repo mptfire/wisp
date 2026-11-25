@@ -21,11 +21,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import com.wisp.app.ui.component.AppNostrConnectDialog
+import com.wisp.app.ui.component.BunkerLoginDialog
+import com.wisp.app.ui.component.Nip46AuthUrlDialog
 import com.wisp.app.ui.component.QrScanner
+import com.wisp.app.ui.component.SignerPickerDialog
 import com.wisp.app.ui.component.TorCornerButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +46,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,7 +71,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -77,7 +83,10 @@ import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
 import com.wisp.app.R
 import com.wisp.app.auth.NostrCredentialSaver
+import com.wisp.app.nostr.ExternalSignerProtocol
+import com.wisp.app.nostr.InstalledSignerApp
 import com.wisp.app.nostr.Nip19
+import com.wisp.app.nostr.Nip46AuthBridge
 import com.wisp.app.nostr.RemoteSignerBridge
 import com.wisp.app.nostr.toHex
 import com.wisp.app.viewmodel.AuthViewModel
@@ -321,7 +330,7 @@ fun SplashScreen(
                         if (authViewModel.logIn()) onLoggedIn() else showNostrSheet = true
                     },
                     modifier = Modifier.fillMaxSize(),
-                    promptText = "Scan nsec, npub, nprofile, recovery phrase, or ncryptsec QR"
+                    promptText = "Scan nsec, npub, bunker://, recovery phrase, or ncryptsec QR"
                 )
             }
         }
@@ -343,12 +352,25 @@ private fun NostrLoginSheet(
     val nsecInput by authViewModel.nsecInput.collectAsState()
     val error by authViewModel.error.collectAsState()
     val pendingNcryptsec by authViewModel.pendingNcryptsec.collectAsState()
+    val pendingBunkerUri by authViewModel.pendingBunkerUri.collectAsState()
+    val bunkerStatus by authViewModel.bunkerStatus.collectAsState()
+    val pendingNip46AuthUrl by Nip46AuthBridge.pendingAuthUrl.collectAsState()
     var passphrase by remember { mutableStateOf("") }
     var isUnlocking by remember { mutableStateOf(false) }
     var nsecVisible by remember { mutableStateOf(false) }
     var isCreating by remember { mutableStateOf(false) }
-    var autofillRequested by remember { mutableStateOf(false) }
-    val signerAvailable = remember { RemoteSignerBridge.isSignerAvailable(context) }
+    val availableSigners = remember { RemoteSignerBridge.listAvailableSigners(context) }
+    val signerAvailable = availableSigners.isNotEmpty()
+    var showSignerPicker by remember { mutableStateOf(false) }
+    var pendingSelectedSignerPackage by remember { mutableStateOf<String?>(null) }
+    var pendingNip46App by remember { mutableStateOf<InstalledSignerApp?>(null) }
+    var showBunkerDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(pendingBunkerUri) {
+        val uri = pendingBunkerUri ?: return@LaunchedEffect
+        val ok = authViewModel.connectWithBunkerUri(uri)
+        if (ok) onLoggedIn()
+    }
 
     var signerLoginComplete by remember { mutableStateOf(false) }
     if (signerLoginComplete) {
@@ -361,10 +383,15 @@ private fun NostrLoginSheet(
     val signerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { activityResult ->
+        val selectedPkg = pendingSelectedSignerPackage
+        pendingSelectedSignerPackage = null
         val data = activityResult.data ?: return@rememberLauncherForActivityResult
         val rawResult = data.getStringExtra("result")?.trim() ?: return@rememberLauncherForActivityResult
-        val pkg = data.getStringExtra("package")?.takeIf { it.isNotBlank() }
-            ?: RemoteSignerBridge.resolveDefaultSignerPackage(context)
+        val pkg = RemoteSignerBridge.resolveSignedPackage(
+            returnedPackage = data.getStringExtra("package"),
+            selectedPackage = selectedPkg,
+            context = context
+        )
         val pubkeyHex = if (rawResult.startsWith("npub1")) {
             try { Nip19.npubDecode(rawResult).toHex() } catch (_: Exception) { return@rememberLauncherForActivityResult }
         } else if (rawResult.length == 64 && rawResult.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
@@ -376,6 +403,20 @@ private fun NostrLoginSheet(
         signerLoginComplete = true
     }
 
+    fun launchInstalledSigner(signerApp: InstalledSignerApp) {
+        when (signerApp.protocol) {
+            ExternalSignerProtocol.NIP55 -> {
+                pendingSelectedSignerPackage = signerApp.packageName
+                signerLauncher.launch(
+                    RemoteSignerBridge.buildGetPublicKeyIntent(packageName = signerApp.packageName)
+                )
+            }
+            ExternalSignerProtocol.NIP46 -> {
+                pendingNip46App = signerApp
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = { if (!isCreating) onDismiss() },
         sheetState = sheetState
@@ -383,6 +424,7 @@ private fun NostrLoginSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -459,7 +501,7 @@ private fun NostrLoginSheet(
             } else OutlinedTextField(
                 value = nsecInput,
                 onValueChange = { authViewModel.updateNsecInput(it) },
-                label = { Text("nsec, npub, recovery phrase, or ncryptsec backup") },
+                label = { Text("nsec, npub, bunker://, phrase, or ncryptsec") },
                 singleLine = false,
                 maxLines = 3,
                 visualTransformation = if (nsecVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -481,21 +523,7 @@ private fun NostrLoginSheet(
                     }
                 },
                 enabled = !isCreating,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused && !autofillRequested && nsecInput.isBlank()) {
-                            autofillRequested = true
-                            val activity = context as? ComponentActivity
-                                ?: return@onFocusChanged
-                            scope.launch {
-                                val saved = NostrCredentialSaver.loadSavedNsec(activity)
-                                if (!saved.isNullOrBlank() && authViewModel.nsecInput.value.isBlank()) {
-                                    authViewModel.updateNsecInput(saved)
-                                }
-                            }
-                        }
-                    }
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(Modifier.height(12.dp))
@@ -505,13 +533,19 @@ private fun NostrLoginSheet(
                     onClick = {
                         if (authViewModel.logIn()) onLoggedIn()
                     },
-                    enabled = nsecInput.isNotBlank() && !isCreating,
+                    enabled = nsecInput.isNotBlank() && !isCreating && bunkerStatus == null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(24.dp)
                 ) {
-                    Text(stringResource(R.string.auth_log_in))
+                    if (bunkerStatus != null && !showBunkerDialog && pendingNip46App == null) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(bunkerStatus ?: stringResource(R.string.auth_bunker_connecting))
+                    } else {
+                        Text(stringResource(R.string.auth_log_in))
+                    }
                 }
             }
 
@@ -519,17 +553,99 @@ private fun NostrLoginSheet(
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = {
-                        val intent = RemoteSignerBridge.buildGetPublicKeyIntent()
-                        signerLauncher.launch(intent)
+                        if (availableSigners.size == 1) {
+                            launchInstalledSigner(availableSigners[0])
+                        } else {
+                            showSignerPicker = true
+                        }
                     },
-                    enabled = !isCreating,
+                    enabled = !isCreating && bunkerStatus == null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(24.dp)
                 ) {
-                    Text(stringResource(R.string.auth_login_with_signer))
+                    val label = if (availableSigners.size == 1) {
+                        stringResource(R.string.auth_login_with_specific_signer, availableSigners[0].label)
+                    } else {
+                        stringResource(R.string.auth_login_with_signer)
+                    }
+                    Text(label)
                 }
+            }
+
+            if (pendingNcryptsec == null) {
+                Spacer(Modifier.height(4.dp))
+                TextButton(
+                    onClick = { showBunkerDialog = true },
+                    enabled = !isCreating && bunkerStatus == null
+                ) {
+                    Text(
+                        text = stringResource(R.string.auth_show_pairing_qr),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                TextButton(
+                    onClick = {
+                        val activity = context as? ComponentActivity ?: return@TextButton
+                        scope.launch {
+                            val saved = NostrCredentialSaver.loadSavedNsec(activity)
+                            if (!saved.isNullOrBlank()) {
+                                authViewModel.updateNsecInput(saved)
+                            }
+                        }
+                    },
+                    enabled = !isCreating && bunkerStatus == null
+                ) {
+                    Text(
+                        text = "Load key from password manager",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            if (showSignerPicker) {
+                SignerPickerDialog(
+                    signers = availableSigners,
+                    onSelect = { signerApp ->
+                        showSignerPicker = false
+                        launchInstalledSigner(signerApp)
+                    },
+                    onDismiss = { showSignerPicker = false }
+                )
+            }
+
+            pendingNip46App?.let { targetApp ->
+                AppNostrConnectDialog(
+                    signerApp = targetApp,
+                    viewModel = authViewModel,
+                    onConnected = {
+                        pendingNip46App = null
+                        onLoggedIn()
+                    },
+                    onDismiss = {
+                        pendingNip46App = null
+                        authViewModel.clearPendingBunkerUri()
+                    }
+                )
+            }
+
+            if (showBunkerDialog) {
+                BunkerLoginDialog(
+                    viewModel = authViewModel,
+                    onConnected = {
+                        showBunkerDialog = false
+                        onLoggedIn()
+                    },
+                    onDismiss = {
+                        showBunkerDialog = false
+                        authViewModel.clearPendingBunkerUri()
+                    }
+                )
+            }
+
+            pendingNip46AuthUrl?.let { authUrl ->
+                Nip46AuthUrlDialog(authUrl = authUrl)
             }
 
             Spacer(Modifier.height(20.dp))

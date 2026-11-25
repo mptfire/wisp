@@ -233,4 +233,25 @@ class AuthLoginRoutingTest {
         vm.clearPendingNcryptsec()
         assertEquals(null, vm.pendingNcryptsec.value)
     }
+
+    @Test
+    fun bunkerUriStagesPendingConnection() {
+        val vm = newViewModel(RuntimeEnvironment.getApplication() as Application)
+        val uri = "bunker://${"a".repeat(64)}?relay=wss://relay.nsec.app&secret=xyz"
+        vm.updateNsecInput(uri)
+        assertFalse(vm.logIn())
+        assertEquals(uri, vm.pendingBunkerUri.value)
+        assertEquals(null, vm.error.value)
+        vm.clearPendingBunkerUri()
+        assertEquals(null, vm.pendingBunkerUri.value)
+    }
+
+    @Test
+    fun invalidBunkerUriRejectedBeforeStaging() {
+        val vm = newViewModel(RuntimeEnvironment.getApplication() as Application)
+        vm.updateNsecInput("bunker://not-a-valid-hex?relay=http://evil.com")
+        assertFalse(vm.logIn())
+        assertEquals(null, vm.pendingBunkerUri.value)
+        assertTrue(vm.error.value.orEmpty().contains("bunker://"))
+    }
 }

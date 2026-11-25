@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
@@ -320,6 +321,7 @@ fun FeedScreen(
     val newNotesButtonHidden by viewModel.newNotesButtonHidden.collectAsState()
     val initLoadingState by viewModel.initLoadingState.collectAsState()
     val relayFeedStatus by viewModel.relayFeedStatus.collectAsState()
+    val localRelayConfig by viewModel.keyRepo.localRelayFlow.collectAsState()
     val pendingFirstFollow by viewModel.pendingFirstFollow.collectAsState()
     val firstFollowCheckDone by viewModel.firstFollowCheckDone.collectAsState()
     val zapInProgress by viewModel.zapInProgress.collectAsState()
@@ -359,7 +361,7 @@ fun FeedScreen(
             onNoteClick = { eventId -> onQuotedNoteClick?.invoke(eventId) },
             onAddToList = onAddToList,
             onFollowAuthor = { pubkey -> viewModel.toggleFollow(pubkey) },
-            onBlockAuthor = { pubkey -> viewModel.blockUser(pubkey) },
+            onBlockAuthor = { pubkey -> viewModel.requestBlockUser(pubkey) },
             onPin = { eventId -> viewModel.togglePin(eventId) },
             onDelete = { eventId, kind -> viewModel.deleteEvent(eventId, kind) },
             isFollowing = { pubkey -> viewModel.contactRepo.isFollowing(pubkey) },
@@ -497,6 +499,7 @@ fun FeedScreen(
             favoriteRelays = favoriteRelays,
             relaySets = ownRelaySets,
             relayInfoRepo = viewModel.relayInfoRepo,
+            localRelayUrl = localRelayConfig?.takeIf { it.enabled }?.url,
             onSelect = { url ->
                 viewModel.setSelectedRelay(url)
                 viewModel.setFeedType(FeedType.RELAY)
@@ -1460,7 +1463,7 @@ private fun FeedItem(
         if (event.kind == 6969) viewModel.eventRepo.getUserZapPollVote(event.id) else null
     }
     val onFollowAuthorCb = { viewModel.toggleFollow(event.pubkey) }
-    val onBlockAuthorCb = { viewModel.blockUser(event.pubkey) }
+    val onBlockAuthorCb = { viewModel.requestBlockUser(event.pubkey) }
     val onMuteThreadCb = {
         val rootId = Nip10.getRootId(event) ?: Nip10.getReplyTarget(event) ?: event.id
         viewModel.muteThread(rootId)
@@ -1581,6 +1584,7 @@ private fun RelayPickerDialog(
     favoriteRelays: List<String>,
     relaySets: List<RelaySet>,
     relayInfoRepo: RelayInfoRepository,
+    localRelayUrl: String? = null,
     onSelect: (String) -> Unit,
     onSelectRelaySet: (RelaySet) -> Unit,
     onCreateRelaySet: (String) -> Unit,
@@ -1684,6 +1688,43 @@ private fun RelayPickerDialog(
                 Spacer(Modifier.size(12.dp))
 
                 LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                    if (localRelayUrl != null && (query.isEmpty() || relayMatchesQuery(localRelayUrl, query))) {
+                        item(key = "local-relay") {
+                            Surface(
+                                onClick = { onSelect(localRelayUrl) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Home,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            stringResource(R.string.local_relay_my_relay),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            localRelayUrl.removePrefix("ws://").removePrefix("wss://").removeSuffix("/"),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Favorites section
                     if (shownFavorites.isNotEmpty()) {
                         item {

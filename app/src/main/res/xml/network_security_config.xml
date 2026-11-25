@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- All relay URLs are validated as wss://; cleartext is never required. -->
-    <base-config cleartextTrafficPermitted="false">
+    <!--
+      Allow cleartext (ws://) at the Android XML layer so local relays (Citrine on
+      127.0.0.1/localhost and LAN relays on RFC 1918 192.168.* / 10.* / 172.16-31.*
+      or *.local) can connect — Android's <domain-config> does not support IP ranges.
+      Clearnet safety is enforced in Kotlin:
+      - SafeHttp rejects all http:// and private/loopback HTTP hosts.
+      - RelayConfig.isValidUrl requires wss:// for all network relays.
+      - Only RelayConfig.isLocalRelayUrl + HttpClientFactory.getLocalRelayClient()
+        accept ws://, and the local client's interceptor blocks any non-local host.
+    -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

@@ -1004,7 +1004,7 @@ private fun LiveChatBubble(
                     }
                     if (!isOwnMessage && onBlockAuthor != null) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.btn_block)) },
+                            text = { Text(stringResource(R.string.btn_block), color = MaterialTheme.colorScheme.error) },
                             onClick = {
                                 menuExpanded = false
                                 onBlockAuthor(message.senderPubkey)

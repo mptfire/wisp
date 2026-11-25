@@ -52,13 +52,13 @@
   <p class="sub"></p>
 
   <div class="card">
-    <h2>Latest release — <span class="mono">1.3.0-fork.2</span> (versionCode 93)</h2>
+    <h2>Latest release — <span class="mono">1.3.0-fork.3</span> (versionCode 94)</h2>
     <p style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center">
-      <a class="btn" id="download" href="./wisp-1.3.0-fork.2.apk">Download APK</a>
-      <a class="btn" style="background:#1f2533;border:1px solid #364056" href="https://firewisp.rtard.de/">Open Web Client</a>
+      <a class="btn" id="download" href="./wisp-1.3.0-fork.3.apk">Download APK</a>
+      <a class="btn" style="background:#1f2533;border:1px solid #364056" href="https://firewisp.de/">Open Web Client</a>
       <a class="btn" style="background:#1f2533;border:1px solid #364056" href="https://zapstore.dev/">Zapstore</a>
     </p>
-    <p style="color:#98a2b3">arm64-v8a · Android 8.0+ · ~51 MB</p>
+    <p style="color:#98a2b3">arm64-v8a · Android 8.0+ · ~40.5 MB</p>
     <dl>
       <dt>SHA-256 of the APK</dt>
       <dd class="mono" id="sha256">see SHA256SUMS in the published bundle</dd>
@@ -87,6 +87,25 @@
   <div class="card">
     <h2>What's new in Fire Wisp</h2>
     <ul>
+      <li><strong>Zero-Google privacy hardening:</strong> Replaced Google ML Kit QR scanning with
+        pure open-source <code>zxing-core</code>, removed ML Kit Translate / Language-ID and
+        <code>play-services</code> / Firebase / Datatransport telemetry (cutting ~11 MB from the APK),
+        stopped silent Android password-manager auto-prompts, and added a privacy warning before
+        saving keys to Google Password Manager.</li>
+      <li><strong>Native NIP-46 Bunker &amp; Amethyst / Multi-Signer login:</strong> Sign in with
+        any NIP-46 remote bunker (<code>bunker://</code> paste/QR or <code>nostrconnect://</code>
+        pairing with <code>nsec.app</code>, <code>nsecBunker</code>, <code>nak bunker</code>, or
+        <strong>Amethyst</strong>'s built-in bunker), plus a unified Signer Picker supporting
+        Amber, Primal, Cambium, and Amethyst side-by-side.</li>
+      <li><strong>Local Relay support (Citrine &amp; LAN):</strong> Restored the Local tab under
+        Relays with a 1-tap Citrine (<code>ws://127.0.0.1:4869</code>) preset and private LAN
+        relay support (<code>192.168.x.x</code>, <code>10.x.x.x</code>, <code>*.local</code>)
+        using a dedicated Tor-safe, host-guarded local WebSocket client (never leaked to NIP-65).</li>
+      <li><strong>Block confirmation prompt:</strong> All 3-dots Block actions now ask for
+        confirmation before blocking and purging an account, preventing accidental taps.</li>
+      <li><strong>Canonical Fire Wisp relay:</strong> Default relay updated to
+        <code>wss://relay.firewisp.de</code> with automatic migration from legacy
+        <code>wss://firewisp.relay.rtard.de</code>.</li>
       <li><strong>Share directly to Fire Wisp from Android:</strong> Fire Wisp now appears in
         Android's system Share sheet (YouTube, browser links, text, photos, and videos) and opens
         the note composer pre-filled — uploading shared media directly to your Blossom server.</li>

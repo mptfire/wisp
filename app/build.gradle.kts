@@ -56,8 +56,8 @@ android {
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 93
-        versionName = "1.3.0-fork.2"
+        versionCode = 94
+        versionName = "1.3.0-fork.3"
         resValue("string", "app_name", "Fire Wisp")
 
         ndk {
@@ -228,9 +228,8 @@ dependencies {
     implementation(libs.splashscreen)
     implementation(libs.profileinstaller)
     implementation(libs.zxing.core)
-    implementation(libs.mlkit.translate)
-    implementation(libs.mlkit.language.id)
-    implementation(libs.kotlinx.coroutines.play.services)
+    // Previously pulled in transitively by ML Kit / Play Services; LocaleRepository needs AppCompatDelegate.
+    implementation(libs.androidx.appcompat)
     implementation(libs.objectbox.android)
     implementation(libs.objectbox.kotlin)
     implementation(libs.breez.sdk.spark) {
@@ -242,11 +241,9 @@ dependencies {
     implementation(libs.kmp.tor.runtime)
     implementation(libs.kmp.tor.runtime.service.ui)
     implementation(libs.kmp.tor.resource.exec)
-    implementation(libs.mlkit.barcode)
     implementation(libs.camerax.core)
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
-    implementation(libs.camerax.mlkit)
     implementation(libs.androidx.credentials)
 }

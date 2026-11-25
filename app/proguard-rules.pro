@@ -47,10 +47,6 @@
 -keep class androidx.camera.** { *; }
 -dontwarn androidx.camera.**
 
-# ML Kit
--keep class com.google.mlkit.** { *; }
--dontwarn com.google.mlkit.**
-
 # ObjectBox
 -keep class io.objectbox.** { *; }
 -dontwarn io.objectbox.**
