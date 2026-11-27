@@ -71,6 +71,7 @@ ANDROID_REPO="/home/mynameissteve/.zcode/workspace/default/wisp"
 WEB_REPO="/home/mynameissteve/.zcode/workspace/default/firewisp-web"
 CANONICAL_RELAY="wss://relay.firewisp.de"
 LEGACY_RELAY="wss://firewisp.relay.rtard.de"
+GRASP_SERVER="git.firewisp.de"
 
 PROTON_VAULT="${NGIT_PROTON_VAULT:-Billy Proton L2}"
 PROTON_ITEM="${NGIT_PROTON_ITEM:-ngit NIP-46 Bunker (Fire Wisp)}"
@@ -350,7 +351,7 @@ publish_repo() {
   echo "=== Publishing $name to Nostr via ngit ==="
   cd "$repo_dir"
 
-  local repo_json state_flags is_nostr_repo has_legacy has_canonical
+  local repo_json state_flags is_nostr_repo has_legacy has_canonical has_grasp
   repo_json="$(ngit repo --json --offline 2>/dev/null || echo '{}')"
   state_flags="$(
     printf '%s' "$repo_json" | python3 -c '
@@ -372,13 +373,15 @@ while idx < len(text):
     except json.JSONDecodeError:
         break
 relays = [r.rstrip("/") for r in (d.get("relays") or [])]
+grasps = [g.rstrip("/").lower() for g in (d.get("grasp_servers") or [])]
 is_nostr = "true" if d.get("is_nostr_repo") is True else "false"
 has_legacy = "true" if "wss://firewisp.relay.rtard.de" in relays else "false"
 has_canonical = "true" if "wss://relay.firewisp.de" in relays else "false"
-print(is_nostr, has_legacy, has_canonical)
+has_grasp = "true" if "git.firewisp.de" in grasps else "false"
+print(is_nostr, has_legacy, has_canonical, has_grasp)
 '
   )"
-  read -r is_nostr_repo has_legacy has_canonical <<<"$state_flags"
+  read -r is_nostr_repo has_legacy has_canonical has_grasp <<<"$state_flags"
 
   if [[ "$is_nostr_repo" == "true" ]]; then
     local edit_args=(
@@ -393,6 +396,9 @@ print(is_nostr, has_legacy, has_canonical)
     if [[ "$has_canonical" != "true" ]]; then
       edit_args+=(--add-additional-relay "$CANONICAL_RELAY")
     fi
+    if [[ "$has_grasp" != "true" ]]; then
+      edit_args+=(--add-grasp-server "$GRASP_SERVER")
+    fi
     ngit --repo-relay-only "${NGIT_AUTH_ARGS[@]}" "${edit_args[@]}"
     ngit --repo-relay-only "${NGIT_AUTH_ARGS[@]}" sync --trust-server
   else
@@ -402,6 +408,7 @@ print(is_nostr, has_legacy, has_canonical)
       --identifier "$identifier"
       --description "$description"
       --web "$web_url"
+      --grasp-server "$GRASP_SERVER"
       --additional-clone "$clone_url"
       --additional-relay "$CANONICAL_RELAY"
     )
