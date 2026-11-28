@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -37,6 +39,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -82,6 +85,7 @@ import com.wisp.app.nostr.NostrEvent
 import com.wisp.app.nostr.ProfileData
 import com.wisp.app.nostr.hexToByteArray
 import com.wisp.app.R
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.outlined.CurrencyBitcoin
 import com.wisp.app.nostr.Nip30
@@ -93,8 +97,12 @@ import com.wisp.app.repo.EventRepository
 import com.wisp.app.repo.Nip05Repository
 import com.wisp.app.repo.ZapDetail
 import com.wisp.app.repo.Nip05Status
+import com.wisp.app.repo.TranslationRepository
 import com.wisp.app.repo.TranslationState
 import com.wisp.app.repo.TranslationStatus
+import com.wisp.app.relay.HttpClientFactory
+import com.wisp.app.translate.LocalTranslationRepository
+import com.wisp.app.translate.LocalTranslationSettings
 import com.wisp.app.ui.theme.WispThemeColors
 import com.wisp.app.ui.util.LocalCanSign
 import java.text.SimpleDateFormat
@@ -209,12 +217,20 @@ fun PostCard(
     val hasReactionDetails = reactionDetails.isNotEmpty() || zapDetails.isNotEmpty() || repostDetails.isNotEmpty()
     var expandedDetails by remember { mutableStateOf(false) }
     var showTranslation by remember { mutableStateOf(true) }
+    val translationSettings = LocalTranslationSettings.current
+    val translationRepo = LocalTranslationRepository.current
 
-    LaunchedEffect(event.id, autoTranslate, translationState.status) {
-        if (com.wisp.app.repo.TranslationRepository.IS_AVAILABLE &&
-            autoTranslate && translationState.status == TranslationStatus.IDLE
+    LaunchedEffect(event.id, autoTranslate, translationSettings.enabled, translationSettings.autoTranslate, translationState.status) {
+        if (TranslationRepository.IS_AVAILABLE &&
+            translationSettings.enabled &&
+            (autoTranslate || translationSettings.autoTranslate) &&
+            translationState.status == TranslationStatus.IDLE
         ) {
-            onTranslate()
+            if (translationRepo != null) {
+                translationRepo.translate(event.id, event.content, allowDownloadPrompt = false)
+            } else {
+                onTranslate()
+            }
         }
     }
 
@@ -525,7 +541,7 @@ fun PostCard(
                             clipboardManager.setText(AnnotatedString(event.toJson()))
                         }
                     )
-                    if (com.wisp.app.repo.TranslationRepository.IS_AVAILABLE) {
+                    if (TranslationRepository.IS_AVAILABLE && translationSettings.enabled) {
                         val translating = translationState.status == TranslationStatus.IDENTIFYING_LANGUAGE ||
                             translationState.status == TranslationStatus.DOWNLOADING_MODEL ||
                             translationState.status == TranslationStatus.TRANSLATING
@@ -546,7 +562,11 @@ fun PostCard(
                                 if (translationState.status == TranslationStatus.DONE) {
                                     showTranslation = !showTranslation
                                 } else {
-                                    onTranslate()
+                                    if (translationRepo != null) {
+                                        translationRepo.translate(event.id, event.content, allowDownloadPrompt = true)
+                                    } else {
+                                        onTranslate()
+                                    }
                                 }
                             }
                         )
@@ -629,9 +649,15 @@ fun PostCard(
                     onArticleClick = articleClick,
                     showAuthor = false
                 )
-            } else if (hasMedia) {
+            } else {
+                val isShowingTranslation = translationState.status == TranslationStatus.DONE &&
+                    showTranslation &&
+                    translationState.translatedText.isNotBlank()
+                val displayedContent = if (isShowingTranslation) translationState.translatedText else event.content
+
+                if (hasMedia) {
                 RichContent(
-                    content = event.content,
+                    content = displayedContent,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     emojiMap = emojiMap,
@@ -666,7 +692,7 @@ fun PostCard(
                         contentAlignment = Alignment.TopStart
                     ) {
                         RichContent(
-                            content = event.content,
+                            content = displayedContent,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                             emojiMap = emojiMap,
@@ -711,6 +737,7 @@ fun PostCard(
                     }
                 }
             }
+            }
 
             // Hide button to re-collapse CW content
             if (contentWarning != null) {
@@ -741,10 +768,15 @@ fun PostCard(
                             strokeWidth = 1.5.dp,
                             color = MaterialTheme.colorScheme.primary
                         )
+                        val pct = (translationState.downloadProgress * 100f).toInt().coerceIn(0, 100)
                         Text(
-                            text = when (translationState.status) {
-                                TranslationStatus.IDENTIFYING_LANGUAGE -> stringResource(R.string.translate_detecting_language)
-                                TranslationStatus.DOWNLOADING_MODEL -> stringResource(R.string.translate_downloading_model)
+                            text = when {
+                                translationState.status == TranslationStatus.IDENTIFYING_LANGUAGE ->
+                                    stringResource(R.string.translate_detecting_language)
+                                translationState.status == TranslationStatus.DOWNLOADING_MODEL && pct > 0 ->
+                                    stringResource(R.string.translate_downloading_pct, pct)
+                                translationState.status == TranslationStatus.DOWNLOADING_MODEL ->
+                                    stringResource(R.string.translate_downloading_model)
                                 else -> stringResource(R.string.translate_translating)
                             },
                             style = MaterialTheme.typography.labelSmall,
@@ -752,32 +784,182 @@ fun PostCard(
                         )
                     }
                 }
+                TranslationStatus.NEEDS_MODEL_DOWNLOAD -> {
+                    val sizeMb = String.format(Locale.US, "%.1f MB", translationState.downloadSizeBytes / (1024.0 * 1024.0))
+                    val confirmRes = if (HttpClientFactory.isTorActive()) {
+                        R.string.translate_confirm_body
+                    } else {
+                        R.string.translate_confirm_body_clearnet
+                    }
+                    AlertDialog(
+                        onDismissRequest = { translationRepo?.cancelDownloadPrompt(event.id) },
+                        title = { Text(stringResource(R.string.translate_confirm_title)) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    stringResource(
+                                        confirmRes,
+                                        translationState.sourceLanguage,
+                                        translationState.targetLanguage,
+                                        sizeMb
+                                    )
+                                )
+                                Text(
+                                    text = stringResource(R.string.translate_change_source_language),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable {
+                                        translationRepo?.requestSourceLanguageSelection(event.id)
+                                    }
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showTranslation = true
+                                translationRepo?.confirmDownloadAndTranslate(event.id, event.content)
+                            }) {
+                                Text(
+                                    stringResource(R.string.translate_confirm_button),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { translationRepo?.cancelDownloadPrompt(event.id) }) {
+                                Text(stringResource(R.string.btn_cancel))
+                            }
+                        }
+                    )
+                }
+                TranslationStatus.NEEDS_SOURCE_LANGUAGE -> {
+                    val repo = translationRepo
+                    if (repo != null) {
+                        val installedModels by repo.installedModels.collectAsState()
+                        val installedPairIds = remember(installedModels) {
+                            installedModels.map { it.pair.pair }.toSet()
+                        }
+                        val targetCode = translationState.targetCode.ifBlank { repo.resolvedTargetLanguage() }
+                        val installedSources = remember(installedPairIds, targetCode) {
+                            repo.manifest.supportedSourceLanguages(targetCode).filterTo(mutableSetOf()) { src ->
+                                val plan = repo.manifest.resolvePlan(src, targetCode)
+                                plan != null && plan.entries.all { it.pair in installedPairIds }
+                            }
+                        }
+                        val allSources = remember(installedSources, targetCode) {
+                            repo.manifest.supportedSourceLanguages(targetCode).sortedWith(
+                                compareByDescending<String> { it in installedSources }
+                                    .thenBy { TranslationRepository.displayName(it) }
+                            )
+                        }
+                        var query by remember { mutableStateOf("") }
+                        val filtered = remember(allSources, query) {
+                            val q = query.trim().lowercase(Locale.ROOT)
+                            if (q.isEmpty()) {
+                                allSources
+                            } else {
+                                allSources.filter { code ->
+                                    TranslationRepository.displayName(code).lowercase(Locale.ROOT).contains(q) ||
+                                        code.lowercase(Locale.ROOT).contains(q)
+                                }
+                            }
+                        }
+                        AlertDialog(
+                            onDismissRequest = { repo.cancelDownloadPrompt(event.id) },
+                            title = { Text(stringResource(R.string.translate_pick_source_title)) },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.translate_pick_source_subtitle),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedTextField(
+                                        value = query,
+                                        onValueChange = { query = it },
+                                        placeholder = { Text(stringResource(R.string.translate_pick_source_search)) },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    LazyColumn(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(max = 300.dp)
+                                    ) {
+                                        items(filtered, key = { it }) { code ->
+                                            val ready = code in installedSources
+                                            Row(
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        showTranslation = true
+                                                        repo.translateWithSource(
+                                                            event.id,
+                                                            event.content,
+                                                            code,
+                                                            allowDownloadPrompt = true
+                                                        )
+                                                    }
+                                                    .padding(vertical = 10.dp, horizontal = 4.dp)
+                                            ) {
+                                                Text(
+                                                    text = TranslationRepository.displayName(code),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                if (ready) {
+                                                    Text(
+                                                        text = stringResource(R.string.translate_pick_source_ready),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = Color(0xFF22C55E)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = {},
+                            dismissButton = {
+                                TextButton(onClick = { repo.cancelDownloadPrompt(event.id) }) {
+                                    Text(stringResource(R.string.btn_cancel))
+                                }
+                            }
+                        )
+                    }
+                }
                 TranslationStatus.DONE -> {
-                    if (showTranslation) {
-                        Column(modifier = Modifier.padding(top = 4.dp)) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                thickness = 0.5.dp
-                            )
+                    if (showTranslation && translationState.translatedText.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp, bottom = 2.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF22C55E))
+                                )
+                                Text(
+                                    text = stringResource(R.string.translate_translated_from, translationState.sourceLanguage),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             Text(
-                                text = stringResource(R.string.translate_translated_from, translationState.sourceLanguage),
+                                text = stringResource(R.string.translate_show_original),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
-                            )
-                            val emojiMap = remember(event.id) { Nip30.parseEmojiTags(event) }
-                            val imetaMap = remember(event.id) { parseImetaTags(event.tags) }
-                            RichContent(
-                                content = translationState.translatedText,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                emojiMap = emojiMap,
-                                imetaMap = imetaMap,
-                                eventRepo = eventRepo,
-                                onProfileClick = onNavigateToProfile,
-                                onNoteClick = onQuotedNoteClick,
-                                noteActions = noteActions,
-                                quoteDepth = quoteDepth
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable { showTranslation = false }
                             )
                         }
                     }

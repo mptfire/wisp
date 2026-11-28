@@ -726,7 +726,10 @@ fun WispNavHost(
     var pipFullScreenAspectRatio by remember { mutableStateOf(16f / 9f) }
 
     Box(modifier = Modifier.padding(innerPadding)) {
-    CompositionLocalProvider(LocalCanSign provides (signingMode != SigningMode.READ_ONLY)) {
+    CompositionLocalProvider(
+        LocalCanSign provides (signingMode != SigningMode.READ_ONLY),
+        com.wisp.app.translate.LocalTranslationRepository provides feedViewModel.translationRepo
+    ) {
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -2823,6 +2826,7 @@ fun WispNavHost(
             InterfaceScreen(
                 application = app,
                 interfacePrefs = interfacePrefs,
+                translationRepo = feedViewModel.translationRepo,
                 onBack = { navController.popBackStack() },
                 onChanged = onInterfaceChanged
             )

@@ -83,9 +83,19 @@ class InterfacePreferences(context: Context) {
     fun isLiveStreamsHidden(): Boolean = prefs.getBoolean("live_streams_hidden", false)
     fun setLiveStreamsHidden(hidden: Boolean) = prefs.edit().putBoolean("live_streams_hidden", hidden).apply()
 
+    fun isTranslationEnabled(): Boolean = prefs.getBoolean("translation_enabled", true)
+    fun setTranslationEnabled(enabled: Boolean) = prefs.edit().putBoolean("translation_enabled", enabled).apply()
+
     fun isAutoTranslate(): Boolean =
-        TranslationRepository.IS_AVAILABLE && prefs.getBoolean("auto_translate", false)
+        TranslationRepository.IS_AVAILABLE &&
+            isTranslationEnabled() &&
+            prefs.getBoolean("auto_translate", false)
     fun setAutoTranslate(enabled: Boolean) = prefs.edit().putBoolean("auto_translate", enabled).apply()
+
+    fun getTranslationTargetLanguage(): String =
+        prefs.getString("translation_target_lang", "system") ?: "system"
+    fun setTranslationTargetLanguage(code: String) =
+        prefs.edit().putString("translation_target_lang", code).apply()
 
     fun isPostUndoTimerEnabled(): Boolean = prefs.getBoolean("post_undo_timer_enabled", true)
     fun setPostUndoTimerEnabled(enabled: Boolean) = prefs.edit().putBoolean("post_undo_timer_enabled", enabled).apply()
@@ -151,6 +161,8 @@ class InterfacePreferences(context: Context) {
             .remove("post_undo_timer_enabled")
             .remove("post_undo_timer_seconds")
             .remove("post_undo_timer_for_replies")
+            .remove("translation_enabled")
+            .remove("translation_target_lang")
             .remove("auto_translate")
             .remove("media_layout_style")
             .remove(KEY_NOTIFICATION_FEED_STYLE)

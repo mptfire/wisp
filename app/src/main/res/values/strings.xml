@@ -637,8 +637,21 @@
 
     <!-- Translation (UI for post content translation) -->
     <string name="settings_translation">Translation</string>
+    <string name="settings_translation_mode_offline">On-device (Offline)</string>
+    <string name="settings_translation_mode_offline_desc">Mozilla open models via firewisp.de · 100% local, zero Google, Tor-safe</string>
+    <string name="settings_translation_mode_disabled">Disabled</string>
+    <string name="settings_translation_mode_disabled_desc">Hide translation controls</string>
     <string name="settings_auto_translate">Auto-translate notes</string>
-    <string name="settings_auto_translate_description">Automatically translate notes that aren\'t in your device language.</string>
+    <string name="settings_auto_translate_description">Automatically translate notes using already-downloaded offline models.</string>
+    <string name="settings_translation_target">Target language</string>
+    <string name="settings_translation_target_device">Device (%s)</string>
+    <string name="settings_offline_models">Offline Language Models</string>
+    <string name="settings_models_used">%s used</string>
+    <string name="settings_download_model">Download language model</string>
+    <string name="settings_model_ready">%s · Ready</string>
+    <string name="settings_model_connecting">Connecting…</string>
+    <string name="settings_model_downloading">Downloading %d%%…</string>
+    <string name="settings_models_privacy_footer">Models are hosted on firewisp.de (no access logs), verified by SHA-256, and downloaded via Tor when Tor is active.</string>
     <string name="translate_sensitive_content">Sensitive content</string>
     <string name="translate_tap_to_reveal">Tap to reveal</string>
     <string name="translate_show_more">Show more</string>
@@ -649,8 +662,18 @@
     <string name="translate_translate">Translate</string>
     <string name="translate_detecting_language">Detecting language…</string>
     <string name="translate_downloading_model">Downloading language model…</string>
+    <string name="translate_downloading_pct">Downloading language model… %d%%</string>
     <string name="translate_translating">Translating…</string>
-    <string name="translate_translated_from">Translated from %s</string>
+    <string name="translate_translated_from">Translated from %s · On-device</string>
+    <string name="translate_confirm_title">Download language model?</string>
+    <string name="translate_confirm_body">Download %1$s → %2$s (%3$s) from firewisp.de over Tor for offline translation?</string>
+    <string name="translate_confirm_body_clearnet">Download %1$s → %2$s (%3$s) from firewisp.de for offline translation? (Enable Tor in the drawer to download anonymously.)</string>
+    <string name="translate_confirm_button">Download &amp; Translate</string>
+    <string name="translate_pick_source_title">Select note language</string>
+    <string name="translate_pick_source_subtitle">Could not detect language automatically. Choose the language to translate from:</string>
+    <string name="translate_pick_source_search">Search language…</string>
+    <string name="translate_pick_source_ready">Downloaded</string>
+    <string name="translate_change_source_language">Wrong language? Pick manually</string>
 
     <!-- Errors / Alerts -->
     <string name="error_social_graph_required">Social graph required</string>

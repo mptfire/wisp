@@ -1,3 +1,18 @@
+## Fire Wisp 1.3.0-fork.4 (versionCode 95)
+
+- **Zero-Google On-Device Inline Translation (`slimt` + Top-20 Mozilla Models)**:
+  - Restored offline in-app note translation without Google Play Services or ML Kit, compiled from open-source `slimt` (GPL-2.0, `ruy` + `sentencepiece` `arm64-v8a` JNI) with SHA-256 verified Top-20 Mozilla Firefox Translations models (MPL-2.0, bidirectional English ↔ 20 languages) self-hosted on `https://firewisp.de/models` with zero access logging.
+  - Translating from the post 3-dots menu replaces the note body in-place (`Show Original` flips cleanly back) with Nostr token/URL/hashtag/emoji preservation, a clear download confirmation prompt (stating Tor vs clearnet), an offline language detector + manual source-language picker fallback, and Settings → Interface controls (`Auto-translate`, target language, model download/delete).
+- **Tor & Privacy Hardening**:
+  - Added fail-closed DNS blocking (`HttpClientFactory.torFailClosedDns`) whenever Tor is `Pending` or `Ready`.
+  - Hardened translation model downloads with HTTPS-only, `ConnectionSpec.MODERN_TLS`, no redirects, `HTTP/1.1` with transient retry recovery, mid-stream byte-limit abort, and pinned SHA-256 verification.
+  - Routed `ProfileRepository.cacheAvatar()` (with HTTPS-only + 10 MB cap) and `AudioPlayerController` through `HttpClientFactory` so audio playback and avatar caching obey Tor routing.
+- **Profile & Gallery Fixes**:
+  - Fixed Gallery video tiles (`kind 21`/`22`) rendering black by using `Nip71` video poster thumbnails and restoring the Play badge overlay.
+  - Added a 2-second EOSE grace window to profile `loadMoreNotes()` / `loadMoreReplies()` so slower archival relays are not cut off by the fastest empty relay's EOSE.
+
+---
+
 ## Fire Wisp 1.3.0-fork.3 (versionCode 94)
 
 - **Native NIP-46 Remote Signer (Bunker) & Unified Signer Picker**:

@@ -1015,9 +1015,15 @@ fun UserProfileScreen(
                             ) {
                                 for (event in row) {
                                     val firstMedia = remember(event.id) {
-                                        val img = com.wisp.app.nostr.Nip68.parseImetaEntries(event).firstOrNull()
-                                        val vid = com.wisp.app.nostr.Nip71.parseVideoMeta(event).firstOrNull()
-                                        Triple(img?.url ?: vid?.thumbnailUrl, vid != null && img == null, event)
+                                        val isVideo = event.kind == com.wisp.app.nostr.Nip71.KIND_VIDEO_HORIZONTAL ||
+                                            event.kind == com.wisp.app.nostr.Nip71.KIND_VIDEO_VERTICAL
+                                        val thumbUrl = if (isVideo) {
+                                            val vid = com.wisp.app.nostr.Nip71.parseVideoMeta(event).firstOrNull()
+                                            vid?.thumbnailUrl ?: vid?.url
+                                        } else {
+                                            com.wisp.app.nostr.Nip68.parseImetaEntries(event).firstOrNull()?.url
+                                        }
+                                        Triple(thumbUrl, isVideo, event)
                                     }
                                     Box(
                                         modifier = Modifier

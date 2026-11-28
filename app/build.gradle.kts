@@ -50,18 +50,26 @@ android {
 
     namespace = "com.wisp.app"
     compileSdk = 36
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = baseApplicationId
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 94
-        versionName = "1.3.0-fork.3"
+        versionCode = 95
+        versionName = "1.3.0-fork.4"
         resValue("string", "app_name", "Fire Wisp")
 
         ndk {
             abiFilters += "arm64-v8a"
+        }
+
+        externalNativeBuild {
+            cmake {
+                targets += "slimt_jni"
+                arguments += listOf("-DANDROID_STL=c++_shared", "-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+            }
         }
 
         buildConfigField("String", "BREEZ_API_KEY", "\"$breezApiKeyLiteral\"")
@@ -171,6 +179,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
     }
 }
 

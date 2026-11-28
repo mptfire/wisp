@@ -67,3 +67,6 @@
 # runtime guards; the classes don't exist on Android by design.
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
+
+# Native slimt JNI bridge
+-keep class com.wisp.app.translate.SlimtNative { *; }

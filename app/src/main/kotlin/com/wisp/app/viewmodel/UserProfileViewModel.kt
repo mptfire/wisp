@@ -644,6 +644,7 @@ class UserProfileViewModel(app: Application) : AndroidViewModel(app) {
             withTimeoutOrNull(10_000) {
                 pool.eoseSignals.first { it == "userposts-more" }
             }
+            delay(2_000)
             pool.closeOnAllRelays("userposts-more")
             isLoadingMoreNotes = false
         }
@@ -671,6 +672,7 @@ class UserProfileViewModel(app: Application) : AndroidViewModel(app) {
             withTimeoutOrNull(10_000) {
                 pool.eoseSignals.first { it == "userreplies-more" }
             }
+            delay(2_000)
             pool.closeOnAllRelays("userreplies-more")
             isLoadingMoreReplies = false
         }

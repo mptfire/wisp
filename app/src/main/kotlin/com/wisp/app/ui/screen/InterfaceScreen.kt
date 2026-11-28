@@ -79,22 +79,33 @@ import com.wisp.app.ui.theme.ThemePreset
 import com.wisp.app.ui.theme.Themes
 import com.wisp.app.ui.theme.wispSwitchColors
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
+import com.wisp.app.repo.TranslationRepository
 import java.text.DateFormat
 import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun InterfaceScreen(
     application: Application,
     interfacePrefs: InterfacePreferences,
+    translationRepo: TranslationRepository? = null,
     onBack: () -> Unit,
     onChanged: () -> Unit
 ) {
@@ -107,7 +118,12 @@ fun InterfaceScreen(
     var mediaLayout by remember { mutableStateOf(interfacePrefs.getMediaLayoutStyle()) }
     var liveStreamsHidden by remember { mutableStateOf(interfacePrefs.isLiveStreamsHidden()) }
     var notifFeedStyle by remember { mutableStateOf(interfacePrefs.getNotificationFeedStyle()) }
+    var translationEnabled by remember { mutableStateOf(interfacePrefs.isTranslationEnabled()) }
     var autoTranslate by remember { mutableStateOf(interfacePrefs.isAutoTranslate()) }
+    var targetLanguage by remember { mutableStateOf(interfacePrefs.getTranslationTargetLanguage()) }
+    var showTargetLangDialog by remember { mutableStateOf(false) }
+    var showModelPickerDialog by remember { mutableStateOf(false) }
+    var modelError by remember { mutableStateOf<String?>(null) }
     var selectedTheme by remember { mutableStateOf(interfacePrefs.getTheme()) }
     var isCustomTheme by remember { mutableStateOf(selectedTheme == "custom") }
     var selectedLanguage by remember { mutableStateOf(interfacePrefs.getLanguage()) }
@@ -592,34 +608,381 @@ fun InterfaceScreen(
             Spacer(Modifier.height(24.dp))
 
             // Translation section
-            if (com.wisp.app.repo.TranslationRepository.IS_AVAILABLE) {
+            if (TranslationRepository.IS_AVAILABLE) {
                 Text(
                     text = stringResource(R.string.settings_translation),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_auto_translate), style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            stringResource(R.string.settings_auto_translate_description),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    translationEnabled = true
+                                    interfacePrefs.setTranslationEnabled(true)
+                                    onChanged()
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = translationEnabled,
+                                onClick = {
+                                    translationEnabled = true
+                                    interfacePrefs.setTranslationEnabled(true)
+                                    onChanged()
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.settings_translation_mode_offline), style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    stringResource(R.string.settings_translation_mode_offline_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    translationEnabled = false
+                                    interfacePrefs.setTranslationEnabled(false)
+                                    onChanged()
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = !translationEnabled,
+                                onClick = {
+                                    translationEnabled = false
+                                    interfacePrefs.setTranslationEnabled(false)
+                                    onChanged()
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.settings_translation_mode_disabled), style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    stringResource(R.string.settings_translation_mode_disabled_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (translationEnabled) {
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.settings_auto_translate), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                stringResource(R.string.settings_auto_translate_description),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = autoTranslate,
+                            onCheckedChange = {
+                                autoTranslate = it
+                                interfacePrefs.setAutoTranslate(it)
+                                onChanged()
+                            },
+                            colors = wispSwitchColors()
                         )
                     }
-                    Switch(
-                        checked = autoTranslate,
-                        onCheckedChange = {
-                            autoTranslate = it
-                            interfacePrefs.setAutoTranslate(it)
-                            onChanged()
-                        },
-                        colors = wispSwitchColors()
-                    )
+
+                    Spacer(Modifier.height(12.dp))
+                    val deviceLangName = remember { TranslationRepository.displayName(Locale.getDefault().language) }
+                    val targetDisplay = if (targetLanguage == "system") {
+                        stringResource(R.string.settings_translation_target_device, deviceLangName)
+                    } else {
+                        TranslationRepository.displayName(targetLanguage)
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showTargetLangDialog = true }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(stringResource(R.string.settings_translation_target), style = MaterialTheme.typography.bodyMedium)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(targetDisplay, style = MaterialTheme.typography.bodySmall)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+
+                    if (translationRepo != null) {
+                        val installedModels by translationRepo.installedModels.collectAsState()
+                        val activeDownloads by translationRepo.activeDownloads.collectAsState()
+                        val usedBytes = installedModels.sumOf { it.sizeOnDiskBytes }
+                        val usedLabel = String.format(Locale.US, "%.1f MB", usedBytes / (1024.0 * 1024.0))
+
+                        Spacer(Modifier.height(12.dp))
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(stringResource(R.string.settings_offline_models), style = MaterialTheme.typography.titleSmall)
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surface
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.settings_models_used, usedLabel),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+
+                                installedModels.forEach { info ->
+                                    Spacer(Modifier.height(10.dp))
+                                    val pairSize = String.format(Locale.US, "%.1f MB", info.sizeOnDiskBytes / (1024.0 * 1024.0))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                "${TranslationRepository.displayName(info.pair.source)} → ${TranslationRepository.displayName(info.pair.target)}",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            Text(
+                                                stringResource(R.string.settings_model_ready, pairSize),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        IconButton(onClick = { translationRepo.deleteModel(info.pair.pair) }) {
+                                            Icon(
+                                                Icons.Outlined.Delete,
+                                                contentDescription = stringResource(R.string.btn_delete),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+
+                                activeDownloads.forEach { (pairId, progress) ->
+                                    val entry = translationRepo.manifest.findPair(pairId)
+                                    val title = if (entry != null) {
+                                        "${TranslationRepository.displayName(entry.source)} → ${TranslationRepository.displayName(entry.target)}"
+                                    } else {
+                                        pairId
+                                    }
+                                    val pct = (progress * 100f).toInt().coerceIn(0, 100)
+                                    Spacer(Modifier.height(10.dp))
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Text(title, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            if (progress <= 0f) {
+                                                stringResource(R.string.settings_model_connecting)
+                                            } else {
+                                                stringResource(R.string.settings_model_downloading, pct)
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        if (progress <= 0f) {
+                                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                        } else {
+                                            LinearProgressIndicator(
+                                                progress = { progress.coerceIn(0f, 1f) },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    }
+                                }
+
+                                modelError?.let { err ->
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        err,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+
+                                Spacer(Modifier.height(12.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        modelError = null
+                                        showModelPickerDialog = true
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(stringResource(R.string.settings_download_model))
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Shield,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                stringResource(R.string.settings_models_privacy_footer),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (showTargetLangDialog) {
+                            val supportedTargets = remember(translationRepo) {
+                                translationRepo.manifest.supportedTargetLanguages()
+                                    .sortedBy { TranslationRepository.displayName(it) }
+                            }
+                            AlertDialog(
+                                onDismissRequest = { showTargetLangDialog = false },
+                                title = { Text(stringResource(R.string.settings_translation_target)) },
+                                text = {
+                                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    targetLanguage = "system"
+                                                    interfacePrefs.setTranslationTargetLanguage("system")
+                                                    onChanged()
+                                                    showTargetLangDialog = false
+                                                }
+                                                .padding(vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            RadioButton(selected = targetLanguage == "system", onClick = null)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(stringResource(R.string.settings_translation_target_device, deviceLangName))
+                                        }
+                                        supportedTargets.forEach { code ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        targetLanguage = code
+                                                        interfacePrefs.setTranslationTargetLanguage(code)
+                                                        onChanged()
+                                                        showTargetLangDialog = false
+                                                    }
+                                                    .padding(vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                RadioButton(selected = targetLanguage == code, onClick = null)
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(TranslationRepository.displayName(code))
+                                            }
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = { showTargetLangDialog = false }) {
+                                        Text(stringResource(R.string.btn_cancel))
+                                    }
+                                }
+                            )
+                        }
+
+                        if (showModelPickerDialog) {
+                            val installedIds = installedModels.map { it.pair.pair }.toSet()
+                            val available = remember(installedModels, activeDownloads) {
+                                val resolvedTarget = translationRepo.resolvedTargetLanguage()
+                                translationRepo.manifest.pairs
+                                    .filter { it.pair !in installedIds && it.pair !in activeDownloads }
+                                    .sortedWith(
+                                        compareByDescending<com.wisp.app.translate.ModelPairEntry> { it.target == resolvedTarget }
+                                            .thenByDescending { it.target == "en" }
+                                            .thenBy { TranslationRepository.displayName(it.source) }
+                                            .thenBy { TranslationRepository.displayName(it.target) }
+                                    )
+                            }
+                            AlertDialog(
+                                onDismissRequest = { showModelPickerDialog = false },
+                                title = { Text(stringResource(R.string.settings_download_model)) },
+                                text = {
+                                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                        available.forEach { entry ->
+                                            val sizeLabel = String.format(Locale.US, "%.1f MB", entry.totalCompressedBytes / (1024.0 * 1024.0))
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        modelError = null
+                                                        showModelPickerDialog = false
+                                                        translationRepo.downloadModel(entry.pair) { err ->
+                                                            modelError = err
+                                                        }
+                                                    }
+                                                    .padding(vertical = 10.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    "${TranslationRepository.displayName(entry.source)} → ${TranslationRepository.displayName(entry.target)}",
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                                Text(
+                                                    sizeLabel,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = { showModelPickerDialog = false }) {
+                                        Text(stringResource(R.string.btn_cancel))
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(24.dp))

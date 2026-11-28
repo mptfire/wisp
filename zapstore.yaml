@@ -9,7 +9,8 @@ release_notes: ./dist/release-notes.md
 description: |
   Fire Wisp is a community-maintained, privacy-focused fork of Wisp for Android:
   - Sovereign Nostr sign-in: unified NIP-55 & NIP-46 signer picker (Amber, Primal, Cambium, Amethyst), native NIP-46 remote bunker (bunker:// & nostrconnect:// QR), NIP-49 encrypted keys (ncryptsec), NIP-06 12/24-word recovery phrases, and mandatory key backup on signup.
-  - Zero Google telemetry: stripped Google Sign-In, Google Drive backup, ML Kit (replaced with open-source ZXing QR decoding), Play Services, Firebase, and Datatransport/Clearcut SDKs.
+  - Zero Google telemetry: stripped Google Sign-In, Google Drive backup, ML Kit (replaced with open-source ZXing QR decoding and native slimt on-device translation), Play Services, Firebase, and Datatransport/Clearcut SDKs.
+  - Zero-Google offline translation: native C++ `slimt` NMT engine (GPL-2.0) with optional SHA-256 verified Top-20 Mozilla language models (MPL-2.0) hosted cleanly on `firewisp.de/models` (zero access logs, Tor-routed downloads, in-place note translation).
   - Built-in fail-closed Tor (kmp-tor) with one-tap toggle on the login screen and drawer, plus dedicated Local Relay support for Citrine (ws://127.0.0.1:4869) and private LAN relays.
   - Preconfigured with Fire Wisp's anti-spam Nostr relay (wss://relay.firewisp.de) and free public Blossom media hosting (blossom.nostr.build / blossom.primal.net, configurable in Settings).
   - NIP-17 seal-authenticated encrypted DMs, gated DM media loading, undo reposts (NIP-09), image alt text (NIP-92), hashtag muting, block confirmations, Android Share target, and Lightning zaps (NWC / Spark).

@@ -309,8 +309,9 @@ class FeedViewModel @JvmOverloads constructor(
             notifRepo.spamClassifier = nspamClassifier
         }
     }
+    val interfacePrefs = InterfacePreferences(app)
     val customEmojiRepo = CustomEmojiRepository(app, pubkeyHex)
-    val translationRepo = TranslationRepository()
+    val translationRepo = TranslationRepository(app, interfacePrefs)
     val zapPrefs = ZapPreferences(app, pubkeyHex)
     val powPrefs = PowPreferences(app)
     private val processingDispatcher = Dispatchers.Default
@@ -325,7 +326,6 @@ class FeedViewModel @JvmOverloads constructor(
         }
     }
 
-    val interfacePrefs = InterfacePreferences(app)
     val nwcRepo = NwcRepository(app, relayPool, pubkeyHex)
     val sparkRepo = SparkRepository(app, pubkeyHex)
     val walletModeRepo = WalletModeRepository(app, pubkeyHex)
@@ -903,6 +903,7 @@ class FeedViewModel @JvmOverloads constructor(
         liveMetricsSocket?.close(1000, null)
         notifRepo.shutdown()
         eventRepo.shutdown()
+        translationRepo.close()
         // viewModelScope is already cancelled here, so drain writers on a detached IO scope.
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()).launch(kotlinx.coroutines.Dispatchers.IO) {
             try { eventPersistence?.shutdown() } catch (e: Exception) { Log.w("FeedVM", "Event persistence shutdown failed", e) }

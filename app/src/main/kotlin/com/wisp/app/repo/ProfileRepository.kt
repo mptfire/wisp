@@ -5,8 +5,10 @@ import android.content.SharedPreferences
 import android.util.Log
 import com.wisp.app.nostr.NostrEvent
 import com.wisp.app.nostr.ProfileData
+import com.wisp.app.relay.HttpClientFactory
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import okhttp3.Request
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -60,23 +62,42 @@ class ProfileRepository internal constructor(prefs: SharedPreferences, val avata
     }
 
     /**
-     * Downloads the avatar from [url] and saves it to local storage.
-     * Call from a coroutine — runs on IO dispatcher.
+     * Downloads the avatar from [url] via [HttpClientFactory] (Tor-routed when active)
+     * and saves it atomically to local storage with a 10 MB cap.
      */
     suspend fun cacheAvatar(pubkey: String, url: String) {
+        if (!url.startsWith("https://", ignoreCase = true)) return
         withContext(Dispatchers.IO) {
+            val file = File(avatarDir, pubkey)
+            val tmpFile = File(avatarDir, "$pubkey.tmp")
             try {
-                val file = File(avatarDir, pubkey)
-                val connection = java.net.URL(url).openConnection()
-                connection.connectTimeout = 5_000
-                connection.readTimeout = 5_000
-                connection.getInputStream().use { input ->
-                    file.outputStream().use { output ->
-                        input.copyTo(output)
+                val req = Request.Builder().url(url).get().build()
+                HttpClientFactory.getImageClient().newCall(req).execute().use { response ->
+                    if (!response.isSuccessful) return@withContext
+                    val body = response.body ?: return@withContext
+                    body.byteStream().use { input ->
+                        tmpFile.outputStream().use { output ->
+                            val buf = ByteArray(8 * 1024)
+                            var total = 0L
+                            while (true) {
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                total += n
+                                if (total > 10L * 1024L * 1024L) {
+                                    throw IllegalStateException("Avatar exceeded 10 MB safety limit")
+                                }
+                                output.write(buf, 0, n)
+                            }
+                        }
                     }
+                }
+                if (!tmpFile.renameTo(file)) {
+                    tmpFile.copyTo(file, overwrite = true)
+                    tmpFile.delete()
                 }
                 Log.d("ProfileRepository", "Cached avatar for ${pubkey.take(8)} (${file.length()} bytes)")
             } catch (e: Exception) {
+                tmpFile.delete()
                 Log.e("ProfileRepository", "Failed to cache avatar for ${pubkey.take(8)}", e)
             }
         }

@@ -1,0 +1,1228 @@
+{
+  "schemaVersion": 2,
+  "commitSha": "firewisp-top20-1788296824409",
+  "baseUrl": "https://firewisp.de/models",
+  "pairs": [
+    {
+      "pair": "aren",
+      "source": "ar",
+      "target": "en",
+      "tier": "v2.2",
+      "totalCompressedBytes": 25352714,
+      "files": [
+        {
+          "name": "lex.50.50.aren.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "2950f434c1c66698a3dca8b0533d616c8ffa18699022544fd9681f550b3dd26b",
+          "compressedBytes": 2168353,
+          "location": "aren/lex.50.50.aren.s2t.bin.gz"
+        },
+        {
+          "name": "model.aren.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "63d0278e8e616bfed2e70d1d337239efbf4c63886ae15072a32a83e44f1a1dbf",
+          "compressedBytes": 22749781,
+          "location": "aren/model.aren.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.aren.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "281a0c5440e2ad133bdd00481ff74027d9c9931a6f986d03fb811f4a492ed102",
+          "compressedBytes": 434580,
+          "location": "aren/vocab.aren.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "csen",
+      "source": "cs",
+      "target": "en",
+      "tier": "v2.0",
+      "totalCompressedBytes": 25106692,
+      "files": [
+        {
+          "name": "lex.50.50.csen.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "d009d666fc85484889342b8bef8e5c05be5b4977b11552cf34477fe6dc81045d",
+          "compressedBytes": 2385037,
+          "location": "csen/lex.50.50.csen.s2t.bin.gz"
+        },
+        {
+          "name": "model.csen.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "64d46f81892a73551b98a854e79c7938e19b510b8efb08a8f0e74df0d23dda6d",
+          "compressedBytes": 22291089,
+          "location": "csen/model.csen.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.csen.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "3c516b08f5fc64b502a4bd2638b07d19b31f8e8247e5961a720f38bd4a1058cf",
+          "compressedBytes": 430566,
+          "location": "csen/vocab.csen.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "deen",
+      "source": "de",
+      "target": "en",
+      "tier": "v2.0",
+      "totalCompressedBytes": 24693229,
+      "files": [
+        {
+          "name": "lex.50.50.deen.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "d5b84cad38238a60c79af42f67e7e9e8380faecd8254197ab9215f2e109232c3",
+          "compressedBytes": 2519623,
+          "location": "deen/lex.50.50.deen.s2t.bin.gz"
+        },
+        {
+          "name": "model.deen.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "d48100af84aefac28ea31bd0df55a3e4a3148994246acd0923c065a11cee47b4",
+          "compressedBytes": 21741949,
+          "location": "deen/model.deen.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.deen.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "542375a01b3709808f3afc406b1a1995c37c3efb254b526e1f7446c912213584",
+          "compressedBytes": 431657,
+          "location": "deen/vocab.deen.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enar",
+      "source": "en",
+      "target": "ar",
+      "tier": "v2.2",
+      "totalCompressedBytes": 24315525,
+      "files": [
+        {
+          "name": "lex.50.50.enar.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "4f23ad866cdf6fb20ad0105da78ea1594a8982f4d511b92b1492d612c8f5e2e4",
+          "compressedBytes": 1577765,
+          "location": "enar/lex.50.50.enar.s2t.bin.gz"
+        },
+        {
+          "name": "model.enar.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "0ad6e026e8037f598e91c0d327b47ee6479ab4a82d03b5f97dc6d8d8dc55e97c",
+          "compressedBytes": 22300931,
+          "location": "enar/model.enar.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enar.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "2dff811309d96fb538ffb8c532690b02936f6d9639815fa88a4551bdfbfa5ba4",
+          "compressedBytes": 436829,
+          "location": "enar/vocab.enar.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "encs",
+      "source": "en",
+      "target": "cs",
+      "tier": "v2.0",
+      "totalCompressedBytes": 24967694,
+      "files": [
+        {
+          "name": "lex.50.50.encs.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "b217c9938d3ad1109663a7bcdc5e9403ab274033c21b0b08a03d4210aa871562",
+          "compressedBytes": 1823794,
+          "location": "encs/lex.50.50.encs.s2t.bin.gz"
+        },
+        {
+          "name": "model.encs.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "df10c1d7ad75589bb729a6225ca60402374af1734974bc652bceac56550ccb82",
+          "compressedBytes": 22713334,
+          "location": "encs/model.encs.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.encs.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "3c516b08f5fc64b502a4bd2638b07d19b31f8e8247e5961a720f38bd4a1058cf",
+          "compressedBytes": 430566,
+          "location": "encs/vocab.encs.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "ende",
+      "source": "en",
+      "target": "de",
+      "tier": "v2.1",
+      "totalCompressedBytes": 25135503,
+      "files": [
+        {
+          "name": "lex.50.50.ende.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "f0e3022461a66143c584d682671b2d62bdcc88a7af6fff401def56b97accd54e",
+          "compressedBytes": 2228934,
+          "location": "ende/lex.50.50.ende.s2t.bin.gz"
+        },
+        {
+          "name": "model.ende.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "fe3d47a387fdc835e06a8805a2858093669ab1007cbc062dc7c3a9682befacc5",
+          "compressedBytes": 22474912,
+          "location": "ende/model.ende.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.ende.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "542375a01b3709808f3afc406b1a1995c37c3efb254b526e1f7446c912213584",
+          "compressedBytes": 431657,
+          "location": "ende/vocab.ende.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enes",
+      "source": "en",
+      "target": "es",
+      "tier": "v2.1",
+      "totalCompressedBytes": 24733345,
+      "files": [
+        {
+          "name": "lex.50.50.enes.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "756f3242a282a97770d96d67deac8d327bd4eff2f94ccaa6a4e2e28b6c8a4c17",
+          "compressedBytes": 2178908,
+          "location": "enes/lex.50.50.enes.s2t.bin.gz"
+        },
+        {
+          "name": "model.enes.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "b6445da0dfa0b25e5cc096760736b5015964fac50f776440e7dc0680353e738a",
+          "compressedBytes": 22126948,
+          "location": "enes/model.enes.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enes.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "388c761c26642c2c58bdeea488e400387782c90ab116c514bfa1fc5c33713c57",
+          "compressedBytes": 427489,
+          "location": "enes/vocab.enes.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enfr",
+      "source": "en",
+      "target": "fr",
+      "tier": "v2.0",
+      "totalCompressedBytes": 25171626,
+      "files": [
+        {
+          "name": "lex.50.50.enfr.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "e07a339d01085b3dc5fd994ba520d5aebcbfd5f976115d2977a6073b355b192b",
+          "compressedBytes": 2209719,
+          "location": "enfr/lex.50.50.enfr.s2t.bin.gz"
+        },
+        {
+          "name": "model.enfr.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "3e983a08160de62754971e20fec0ddc9b01862cd0421b7c1607721c5ba0b9e8f",
+          "compressedBytes": 22533964,
+          "location": "enfr/model.enfr.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enfr.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "2f32fae78fad561abc145b95c29915ddd62e41519a47334ab2b6485b9866f135",
+          "compressedBytes": 427943,
+          "location": "enfr/vocab.enfr.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enhi",
+      "source": "en",
+      "target": "hi",
+      "tier": "v1.0",
+      "totalCompressedBytes": 14566145,
+      "files": [
+        {
+          "name": "lex.50.50.enhi.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "fd32ce4aa612c7452534dda4221476821bd8efb9b8614c3d1bc405f997bf5cd4",
+          "compressedBytes": 1620097,
+          "location": "enhi/lex.50.50.enhi.s2t.bin.gz"
+        },
+        {
+          "name": "model.enhi.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "d394e3cc6ea11ab86492774f8f19679f70007039c65a8cbafc47d7bf8fa73378",
+          "compressedBytes": 12498396,
+          "location": "enhi/model.enhi.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enhi.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "c8fedd75b5bcb365c18add9d4daf7e0c8d0c59407081dd2fc764fdf6ce6ebeed",
+          "compressedBytes": 447652,
+          "location": "enhi/vocab.enhi.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enhr",
+      "source": "en",
+      "target": "hr",
+      "tier": "v1.0",
+      "totalCompressedBytes": 14374147,
+      "files": [
+        {
+          "name": "lex.50.50.enhr.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "e156e57bb6e13c9f500f89e92b17cc8d3905b411a04379a726b63c72b5c26d4d",
+          "compressedBytes": 1402527,
+          "location": "enhr/lex.50.50.enhr.s2t.bin.gz"
+        },
+        {
+          "name": "model.enhr.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "94ded4c10ae3ff52debf9fb30e06e03f3b228cda14fb0f1ae628fd1e7aeb93df",
+          "compressedBytes": 12557701,
+          "location": "enhr/model.enhr.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enhr.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "7ae2a422846eed5f1f1a6bd38932fcf1cf3281f0bfdd6a9b556b2933341beacf",
+          "compressedBytes": 413919,
+          "location": "enhr/vocab.enhr.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enid",
+      "source": "en",
+      "target": "id",
+      "tier": "v1.0",
+      "totalCompressedBytes": 14292191,
+      "files": [
+        {
+          "name": "lex.50.50.enid.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "ec1e23271c7fc36288d7bc336f6c070b537370c31ef71d23f7f67b123e70327f",
+          "compressedBytes": 1666272,
+          "location": "enid/lex.50.50.enid.s2t.bin.gz"
+        },
+        {
+          "name": "model.enid.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "b60ab0638301cccde868b8070bfcf51ee95def0b8cd47313a44df5cd235e143f",
+          "compressedBytes": 12229016,
+          "location": "enid/model.enid.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enid.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "907dedaf701e344d17116a37fa3cd23d63655683543bcad1a6dc2f104e0c944d",
+          "compressedBytes": 396903,
+          "location": "enid/vocab.enid.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enit",
+      "source": "en",
+      "target": "it",
+      "tier": "v2.1",
+      "totalCompressedBytes": 26093609,
+      "files": [
+        {
+          "name": "lex.50.50.enit.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "a9b0afe763089d3d13a2f63859325b804166d7c3abd5af1cbef06f759186a3af",
+          "compressedBytes": 2122223,
+          "location": "enit/lex.50.50.enit.s2t.bin.gz"
+        },
+        {
+          "name": "model.enit.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "62cbccf4ff754f98e42130f08b8f51a0be4de1be4e2f0d7adacbe17c13f665f9",
+          "compressedBytes": 23546502,
+          "location": "enit/model.enit.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enit.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "9f73efc99dc0750957c58fd071efba9367176489876c5c9dcd1980f328d5def0",
+          "compressedBytes": 424884,
+          "location": "enit/vocab.enit.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enja",
+      "source": "en",
+      "target": "ja",
+      "tier": "v2.3",
+      "totalCompressedBytes": 35600404,
+      "files": [
+        {
+          "name": "lex.50.50.enja.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "734eefdbed48caf67a58eab1c54957eb5ca6986982a0df9a355af4cef2f2f053",
+          "compressedBytes": 2258774,
+          "location": "enja/lex.50.50.enja.s2t.bin.gz"
+        },
+        {
+          "name": "model.enja.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "7a83ffe9ce67d5b419ae5e890eac07144625d6453af98bcba7bc8d6f70581da9",
+          "compressedBytes": 32468058,
+          "location": "enja/model.enja.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "srcvocab.enja.spm.gz",
+          "role": "srcvocab",
+          "compressedSha256": "571afa499b0a35e209d2fc764dee6eed86624ed5a7bf3d8f86624b96f3e002e5",
+          "compressedBytes": 422811,
+          "location": "enja/srcvocab.enja.spm.gz"
+        },
+        {
+          "name": "trgvocab.enja.spm.gz",
+          "role": "trgvocab",
+          "compressedSha256": "53e07680e505913299f77ff6e6f985769665ef62d5b989d8b45e961c4d04e517",
+          "compressedBytes": 450761,
+          "location": "enja/trgvocab.enja.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enko",
+      "source": "en",
+      "target": "ko",
+      "tier": "v2.1",
+      "totalCompressedBytes": 37466755,
+      "files": [
+        {
+          "name": "lex.50.50.enko.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "960f383d8fe61a5440c4b9e50a79359e25292b67ada14e8b9a838e079f6dd24d",
+          "compressedBytes": 3314587,
+          "location": "enko/lex.50.50.enko.s2t.bin.gz"
+        },
+        {
+          "name": "model.enko.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "8ff06a060a57eab49a7d68f0b27c4df0ff38ca30a85cdadb2505fc1388b73e07",
+          "compressedBytes": 33299605,
+          "location": "enko/model.enko.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "srcvocab.enko.spm.gz",
+          "role": "srcvocab",
+          "compressedSha256": "f6838083b2f906afbe8ca75c60a58200341b5477ca7c0c201ce8de3d266d1303",
+          "compressedBytes": 420516,
+          "location": "enko/srcvocab.enko.spm.gz"
+        },
+        {
+          "name": "trgvocab.enko.spm.gz",
+          "role": "trgvocab",
+          "compressedSha256": "a167aed299931d20418b093333a28e277a3394c0a99c6ee222ed2fbc926aab8a",
+          "compressedBytes": 432047,
+          "location": "enko/trgvocab.enko.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "ennl",
+      "source": "en",
+      "target": "nl",
+      "tier": "v2.1",
+      "totalCompressedBytes": 25439685,
+      "files": [
+        {
+          "name": "lex.50.50.ennl.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "9fa952b6c64266786332ae6a3d1a38db7a0aa48624ffc825dfe5342c229e1cf6",
+          "compressedBytes": 2071996,
+          "location": "ennl/lex.50.50.ennl.s2t.bin.gz"
+        },
+        {
+          "name": "model.ennl.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "21f4ac6baa3837579c1e52b3b8de8c56b7b6eff9a9876ef38b4ac4074facb203",
+          "compressedBytes": 22939765,
+          "location": "ennl/model.ennl.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.ennl.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "75a3aa3ce0b21a07f874fb48b67f150c4e65ba8e85b0fbc37dc8a27b603cca27",
+          "compressedBytes": 427924,
+          "location": "ennl/vocab.ennl.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enpl",
+      "source": "en",
+      "target": "pl",
+      "tier": "v2.1",
+      "totalCompressedBytes": 24200484,
+      "files": [
+        {
+          "name": "lex.50.50.enpl.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "944b7fea34fb3a13ee7287215ab79a258f440c769e0acd002aa55f7dc328ed9e",
+          "compressedBytes": 1803175,
+          "location": "enpl/lex.50.50.enpl.s2t.bin.gz"
+        },
+        {
+          "name": "model.enpl.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "30106d5b724b158ab813dbcfec36ca13139c1eefbd7b7b160b91101bbe6bab0a",
+          "compressedBytes": 21965912,
+          "location": "enpl/model.enpl.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enpl.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "3f54e64ab34ce2b4359065650ebc651661416eaca76b0542063c3902aedd24f3",
+          "compressedBytes": 431397,
+          "location": "enpl/vocab.enpl.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enpt",
+      "source": "en",
+      "target": "pt",
+      "tier": "v2.1",
+      "totalCompressedBytes": 25338546,
+      "files": [
+        {
+          "name": "lex.50.50.enpt.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "65d018064b3343a194322a311785882b4a16bb9dacd481ce5db4ef013428e701",
+          "compressedBytes": 2037126,
+          "location": "enpt/lex.50.50.enpt.s2t.bin.gz"
+        },
+        {
+          "name": "model.enpt.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "bdcb1272978b7fc7f840af701e13b4580bc67d336f18bd34b08c4c6ef76a47ff",
+          "compressedBytes": 22874494,
+          "location": "enpt/model.enpt.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enpt.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "030159751c2bc3119f5090e26dba37364c5364ee55045106a4facdfbf5d3ca5d",
+          "compressedBytes": 426926,
+          "location": "enpt/vocab.enpt.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enru",
+      "source": "en",
+      "target": "ru",
+      "tier": "v2.1",
+      "totalCompressedBytes": 23038738,
+      "files": [
+        {
+          "name": "lex.50.50.enru.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "e16dd93eddb274741559eff521ec3985d7a8e19d44689deaa3725d98ed64f340",
+          "compressedBytes": 1324801,
+          "location": "enru/lex.50.50.enru.s2t.bin.gz"
+        },
+        {
+          "name": "model.enru.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "f017c14a0e6de207a9b0d2828dced7686c51a34dd303d6272b13a380170ee6bc",
+          "compressedBytes": 21278450,
+          "location": "enru/model.enru.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enru.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "3c47cddb76d981e7e5c202830c65c6a934915fd965c24daf81ad4bfe9b94ddd3",
+          "compressedBytes": 435487,
+          "location": "enru/vocab.enru.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "ensv",
+      "source": "en",
+      "target": "sv",
+      "tier": "v1.0",
+      "totalCompressedBytes": 14802597,
+      "files": [
+        {
+          "name": "lex.50.50.ensv.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "41c11beba3bfacc7fdb5e0b1aa4444fdfe3270186e24da02229c03977975969d",
+          "compressedBytes": 1845151,
+          "location": "ensv/lex.50.50.ensv.s2t.bin.gz"
+        },
+        {
+          "name": "model.ensv.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "8a191bb8c99c4791d2ea27d97f5e6dd24f87f6c8e0d699ac7b594a4a2d8e6f28",
+          "compressedBytes": 12540010,
+          "location": "ensv/model.ensv.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.ensv.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "3268c146ee156d4065b61489f298e7626e333ca32bc343c64d7cce59e23cf75d",
+          "compressedBytes": 417436,
+          "location": "ensv/vocab.ensv.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "entr",
+      "source": "en",
+      "target": "tr",
+      "tier": "v1.0",
+      "totalCompressedBytes": 14911343,
+      "files": [
+        {
+          "name": "lex.50.50.entr.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "58f3c051cdd2fafb15b652340a7361b7fabcb9126465f6bf50d2ec1c930a5415",
+          "compressedBytes": 1498352,
+          "location": "entr/lex.50.50.entr.s2t.bin.gz"
+        },
+        {
+          "name": "model.entr.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "f57267739913ecb360482027031958120193fe9291302b6243088bf81591d72e",
+          "compressedBytes": 12999426,
+          "location": "entr/model.entr.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.entr.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "a7830106bfbe7082d49b7e238595bb58d55adc9ff47c260216a06234e9aa6fa3",
+          "compressedBytes": 413565,
+          "location": "entr/vocab.entr.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enuk",
+      "source": "en",
+      "target": "uk",
+      "tier": "v2.2",
+      "totalCompressedBytes": 24264444,
+      "files": [
+        {
+          "name": "lex.50.50.enuk.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "d030ac370d12a0e6defe453088ecbd017173e39e6abd2d530916487cd2ae2e08",
+          "compressedBytes": 1502081,
+          "location": "enuk/lex.50.50.enuk.s2t.bin.gz"
+        },
+        {
+          "name": "model.enuk.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "52695c1acdcf6deaafa940d41ee6bf5854830c3bfb5137e0ca56f41a1c0822f3",
+          "compressedBytes": 22307649,
+          "location": "enuk/model.enuk.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.enuk.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "be50a45f56735b4663b120544b2a962c1ce0e2d6f6d50e7d1ee27965d2eed8fc",
+          "compressedBytes": 454714,
+          "location": "enuk/vocab.enuk.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "envi",
+      "source": "en",
+      "target": "vi",
+      "tier": "v2.0",
+      "totalCompressedBytes": 26501907,
+      "files": [
+        {
+          "name": "lex.50.50.envi.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "acab6d0f306c1cf01e128e6d57ba5bcc32f1294937e4ada93c993a0d189c14a1",
+          "compressedBytes": 2139826,
+          "location": "envi/lex.50.50.envi.s2t.bin.gz"
+        },
+        {
+          "name": "model.envi.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "cf851dbdb5265dd797ccb9c7ae653572710091c404d07ce1f43572a27235b25e",
+          "compressedBytes": 23944229,
+          "location": "envi/model.envi.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.envi.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "2c76b0f64f5e59e5f5f1ff8830b18f6d6b09dcbff3e75a89206946298c90bbb6",
+          "compressedBytes": 417852,
+          "location": "envi/vocab.envi.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "enzh",
+      "source": "en",
+      "target": "zh",
+      "tier": "v2.2",
+      "totalCompressedBytes": 37140443,
+      "files": [
+        {
+          "name": "lex.50.50.enzh.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "9e102581e441b4645669da396ef56d28f8edfcd5fb1503e7e28a18e211840c58",
+          "compressedBytes": 3391971,
+          "location": "enzh/lex.50.50.enzh.s2t.bin.gz"
+        },
+        {
+          "name": "model.enzh.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "f37207b4e878440132485660d60dd5e4f67c364dc848d6313b4e9724ff4b45a8",
+          "compressedBytes": 32876989,
+          "location": "enzh/model.enzh.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "srcvocab.enzh.spm.gz",
+          "role": "srcvocab",
+          "compressedSha256": "508c838b955daecf99644853e0401830183f624cd282ce044a0fe5f86c1a39af",
+          "compressedBytes": 426261,
+          "location": "enzh/srcvocab.enzh.spm.gz"
+        },
+        {
+          "name": "trgvocab.enzh.spm.gz",
+          "role": "trgvocab",
+          "compressedSha256": "4bcf52745f2850177aa966413223e62971fa4286a15b2eb93cc9466a4654083d",
+          "compressedBytes": 445222,
+          "location": "enzh/trgvocab.enzh.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "esen",
+      "source": "es",
+      "target": "en",
+      "tier": "v2.0",
+      "totalCompressedBytes": 25690873,
+      "files": [
+        {
+          "name": "lex.50.50.esen.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "424b3c33932b49d868db55de4a37af50912bdac8a525091cddf4a887516335c7",
+          "compressedBytes": 2442301,
+          "location": "esen/lex.50.50.esen.s2t.bin.gz"
+        },
+        {
+          "name": "model.esen.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "6836b60b79e6977534b82b7a8f6a32b99ffa75d395c7d28135ad734ce98d9220",
+          "compressedBytes": 22821083,
+          "location": "esen/model.esen.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.esen.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "388c761c26642c2c58bdeea488e400387782c90ab116c514bfa1fc5c33713c57",
+          "compressedBytes": 427489,
+          "location": "esen/vocab.esen.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "fren",
+      "source": "fr",
+      "target": "en",
+      "tier": "v2.0",
+      "totalCompressedBytes": 25666512,
+      "files": [
+        {
+          "name": "lex.50.50.fren.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "771515a89da67a3929e0f42a78264043adbcc993a5aaf59a158747faa8e1b066",
+          "compressedBytes": 2544847,
+          "location": "fren/lex.50.50.fren.s2t.bin.gz"
+        },
+        {
+          "name": "model.fren.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "9275ad8fbb4464265f29f350346d7c2a06748008222a1258efc88251e8ecd884",
+          "compressedBytes": 22693722,
+          "location": "fren/model.fren.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.fren.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "2f32fae78fad561abc145b95c29915ddd62e41519a47334ab2b6485b9866f135",
+          "compressedBytes": 427943,
+          "location": "fren/vocab.fren.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "hien",
+      "source": "hi",
+      "target": "en",
+      "tier": "v1.0",
+      "totalCompressedBytes": 15181923,
+      "files": [
+        {
+          "name": "lex.50.50.hien.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "fa57d06deeb28644953929c18110f0096180ac754bc96931189e2e85164ffef7",
+          "compressedBytes": 2224281,
+          "location": "hien/lex.50.50.hien.s2t.bin.gz"
+        },
+        {
+          "name": "model.hien.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "10ca24de7d90119bc1615cb6a7e1876985feda1676abcb580708b2b874498c0e",
+          "compressedBytes": 12509940,
+          "location": "hien/model.hien.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.hien.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "c79d28433d2cf7b8488dd734bfe9e782c3a8ff7682da1becd5f11393fe313c6b",
+          "compressedBytes": 447702,
+          "location": "hien/vocab.hien.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "hren",
+      "source": "hr",
+      "target": "en",
+      "tier": "v1.0",
+      "totalCompressedBytes": 15095833,
+      "files": [
+        {
+          "name": "lex.50.50.hren.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "68f5d50aafa533e7c9d50b15627449373667a3c01ca0f28b0fe0521ce4c7e348",
+          "compressedBytes": 1804206,
+          "location": "hren/lex.50.50.hren.s2t.bin.gz"
+        },
+        {
+          "name": "model.hren.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "36de50bb3d55a0deee9e02c1a5899dea0cd90bd0c3b8ff3f07c4d30425dc0ef7",
+          "compressedBytes": 12878698,
+          "location": "hren/model.hren.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.hren.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "3cf1271792ce78330534ac3e243c3de62382a40b36ad752fe58a849db067b4e4",
+          "compressedBytes": 412929,
+          "location": "hren/vocab.hren.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "iden",
+      "source": "id",
+      "target": "en",
+      "tier": "v1.0",
+      "totalCompressedBytes": 14981697,
+      "files": [
+        {
+          "name": "lex.50.50.iden.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "1126b8fde017c9c1f761615272031a7d3944550303c691cec7bafc34084aebd6",
+          "compressedBytes": 1761278,
+          "location": "iden/lex.50.50.iden.s2t.bin.gz"
+        },
+        {
+          "name": "model.iden.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "9c9a17fe3a5d5afba0e55542b05e307de3c77cb04889d1f075c0b7241fc8821a",
+          "compressedBytes": 12823275,
+          "location": "iden/model.iden.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.iden.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "1dc26de63c151dd91f3bcaebe794044d1a37d5a7030097e35a148cbd0d1ef7b6",
+          "compressedBytes": 397144,
+          "location": "iden/vocab.iden.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "iten",
+      "source": "it",
+      "target": "en",
+      "tier": "v2.0",
+      "totalCompressedBytes": 25683394,
+      "files": [
+        {
+          "name": "lex.50.50.iten.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "fd02e89fd8852d50a81d2b331bd9d6958349fc4a1d2c4ca6b41d69e72a0c50ae",
+          "compressedBytes": 2427094,
+          "location": "iten/lex.50.50.iten.s2t.bin.gz"
+        },
+        {
+          "name": "model.iten.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "ba511eedbd7d5accdb8abe1261cc13b3d2f6f6376088ef1a5a1809716aad1b83",
+          "compressedBytes": 22831416,
+          "location": "iten/model.iten.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.iten.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "9f73efc99dc0750957c58fd071efba9367176489876c5c9dcd1980f328d5def0",
+          "compressedBytes": 424884,
+          "location": "iten/vocab.iten.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "jaen",
+      "source": "ja",
+      "target": "en",
+      "tier": "v2.1",
+      "totalCompressedBytes": 37288398,
+      "files": [
+        {
+          "name": "lex.50.50.jaen.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "5b7e29910344db53daa011047e0d949d549352ccd7596cd2f6726b945bb721d5",
+          "compressedBytes": 4583093,
+          "location": "jaen/lex.50.50.jaen.s2t.bin.gz"
+        },
+        {
+          "name": "model.jaen.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "dcbca9a969477b72afa6eca3cd1ecb9c11637d5a657f3c61c9cdb17b2783289a",
+          "compressedBytes": 31943397,
+          "location": "jaen/model.jaen.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.jaen.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "e9a375aec32bba80013d02ff771f79e1fce03a428f35b744a4a2745fb8fcf3ae",
+          "compressedBytes": 761908,
+          "location": "jaen/vocab.jaen.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "koen",
+      "source": "ko",
+      "target": "en",
+      "tier": "v2.1",
+      "totalCompressedBytes": 36346517,
+      "files": [
+        {
+          "name": "lex.50.50.koen.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "0d50436970a2773a3243e9007331110013fc42e8d43504cb78f364df325b69aa",
+          "compressedBytes": 4170102,
+          "location": "koen/lex.50.50.koen.s2t.bin.gz"
+        },
+        {
+          "name": "model.koen.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "adac88bc61367a64f549d2548c21c267df18e33eaeca0040e78851d407b809f8",
+          "compressedBytes": 31454363,
+          "location": "koen/model.koen.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.koen.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "b512be87c66778cb4fb64bf25089d462d9eb43cd0b2b65f0e1a4068778424c87",
+          "compressedBytes": 722052,
+          "location": "koen/vocab.koen.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "nlen",
+      "source": "nl",
+      "target": "en",
+      "tier": "v2.0",
+      "totalCompressedBytes": 25001693,
+      "files": [
+        {
+          "name": "lex.50.50.nlen.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "f61cfb6cc967f2ce719012fcdcf3b8858232c830e69e55d4814eb886385dd049",
+          "compressedBytes": 2512510,
+          "location": "nlen/lex.50.50.nlen.s2t.bin.gz"
+        },
+        {
+          "name": "model.nlen.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "0738cd866268ccb2b064e682acdf45fd812c9e4df6984bf1cd064e25f77e2b97",
+          "compressedBytes": 22061259,
+          "location": "nlen/model.nlen.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.nlen.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "75a3aa3ce0b21a07f874fb48b67f150c4e65ba8e85b0fbc37dc8a27b603cca27",
+          "compressedBytes": 427924,
+          "location": "nlen/vocab.nlen.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "plen",
+      "source": "pl",
+      "target": "en",
+      "tier": "v2.0",
+      "totalCompressedBytes": 24875339,
+      "files": [
+        {
+          "name": "lex.50.50.plen.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "ed98ef7877a06bd56b84b2906015908b1ad97961f239962992becd55ed2d0462",
+          "compressedBytes": 2382696,
+          "location": "plen/lex.50.50.plen.s2t.bin.gz"
+        },
+        {
+          "name": "model.plen.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "ea982e537086e2f8fc888af17f9da40ffc6e534a47a9a03a2cc1e62efacb703b",
+          "compressedBytes": 22061246,
+          "location": "plen/model.plen.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.plen.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "3f54e64ab34ce2b4359065650ebc651661416eaca76b0542063c3902aedd24f3",
+          "compressedBytes": 431397,
+          "location": "plen/vocab.plen.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "pten",
+      "source": "pt",
+      "target": "en",
+      "tier": "v2.0",
+      "totalCompressedBytes": 24906774,
+      "files": [
+        {
+          "name": "lex.50.50.pten.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "d0a366a08e52753e45e78e22ef08dc10ced0188ad12f2f05f7d6a3ce1eab1909",
+          "compressedBytes": 2388184,
+          "location": "pten/lex.50.50.pten.s2t.bin.gz"
+        },
+        {
+          "name": "model.pten.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "ce54021c3572a0f6953c5768dd5411f5bfe0e366a94b0568deba260541cf78f2",
+          "compressedBytes": 22091664,
+          "location": "pten/model.pten.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.pten.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "030159751c2bc3119f5090e26dba37364c5364ee55045106a4facdfbf5d3ca5d",
+          "compressedBytes": 426926,
+          "location": "pten/vocab.pten.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "ruen",
+      "source": "ru",
+      "target": "en",
+      "tier": "v2.1",
+      "totalCompressedBytes": 24753561,
+      "files": [
+        {
+          "name": "lex.50.50.ruen.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "39559cc3e4f33ca9f65df9886dee211bee01983f6a2e2fc11b1f8a361f2118b9",
+          "compressedBytes": 2056357,
+          "location": "ruen/lex.50.50.ruen.s2t.bin.gz"
+        },
+        {
+          "name": "model.ruen.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "e0c002f7dae65c2d3e6256396434aca8dd0f3dfbbcb683f60095c1080a5386bc",
+          "compressedBytes": 22237897,
+          "location": "ruen/model.ruen.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.ruen.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "9a5837d98337c4509ee67264f28819aeaaacc6de8e7b8b82a17fd7e700136d8e",
+          "compressedBytes": 459307,
+          "location": "ruen/vocab.ruen.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "sven",
+      "source": "sv",
+      "target": "en",
+      "tier": "v1.0",
+      "totalCompressedBytes": 15140719,
+      "files": [
+        {
+          "name": "lex.50.50.sven.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "f7e8b02447cdcc8be6ba9bacf6d25f51f7eeddf04c114402ba7f2c32b5e41bbf",
+          "compressedBytes": 2085334,
+          "location": "sven/lex.50.50.sven.s2t.bin.gz"
+        },
+        {
+          "name": "model.sven.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "4b4d33bd8c700a54f9a1fd65479df58c851db06d9fe998f6ad18c2bf9d8f5557",
+          "compressedBytes": 12638622,
+          "location": "sven/model.sven.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.sven.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "79b5cdf9fddb3c64ad47d2249f5badc84170cc141dcc8d190a3a436c95c401e7",
+          "compressedBytes": 416763,
+          "location": "sven/vocab.sven.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "tren",
+      "source": "tr",
+      "target": "en",
+      "tier": "v1.0",
+      "totalCompressedBytes": 14798027,
+      "files": [
+        {
+          "name": "lex.50.50.tren.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "a714ad2dd572959f747bb1931854f195db6cccedbafa8c83830798155109425e",
+          "compressedBytes": 2346019,
+          "location": "tren/lex.50.50.tren.s2t.bin.gz"
+        },
+        {
+          "name": "model.tren.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "cc07bc2b20531112192e7d7b76c90db20e902b4b82ccee30c203a954ab3298bd",
+          "compressedBytes": 12025606,
+          "location": "tren/model.tren.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.tren.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "b17ce5cee1a0387883b4db3dd411b1fd5e78b19de459933840522c7a45aced90",
+          "compressedBytes": 426402,
+          "location": "tren/vocab.tren.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "uken",
+      "source": "uk",
+      "target": "en",
+      "tier": "v1.1",
+      "totalCompressedBytes": 14603300,
+      "files": [
+        {
+          "name": "lex.50.50.uken.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "d485270a3894941fa64d8c2da403895f209a6bf4c206b663e5141299fc5e421a",
+          "compressedBytes": 1727546,
+          "location": "uken/lex.50.50.uken.s2t.bin.gz"
+        },
+        {
+          "name": "model.uken.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "f28f64f598553aed9e76acfc6526d4447a1f0cf2b3a8984da3ce45b7e00bb666",
+          "compressedBytes": 12443335,
+          "location": "uken/model.uken.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.uken.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "b7b1e06f69e348c614d75fc1bff28e1a020aa3822cc4da04b927c6a6638b62a7",
+          "compressedBytes": 432419,
+          "location": "uken/vocab.uken.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "vien",
+      "source": "vi",
+      "target": "en",
+      "tier": "v1.0",
+      "totalCompressedBytes": 14922460,
+      "files": [
+        {
+          "name": "lex.50.50.vien.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "85bcbab6b97004e44fd77c0110b4bf97d275eb9a3d82f2a3b7e478924ef919ba",
+          "compressedBytes": 1821389,
+          "location": "vien/lex.50.50.vien.s2t.bin.gz"
+        },
+        {
+          "name": "model.vien.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "76c8e48dd22b7f97f3ddc0d91bcfa2c428f5730a2c006d00497986bc268ebe09",
+          "compressedBytes": 12706394,
+          "location": "vien/model.vien.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.vien.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "b674a80636269a2f125956f1d35370e0d12a0a1a528deb2ea44c74b61af3e1b5",
+          "compressedBytes": 394677,
+          "location": "vien/vocab.vien.spm.gz"
+        }
+      ]
+    },
+    {
+      "pair": "zhen",
+      "source": "zh",
+      "target": "en",
+      "tier": "v2.1",
+      "totalCompressedBytes": 37487814,
+      "files": [
+        {
+          "name": "lex.50.50.zhen.s2t.bin.gz",
+          "role": "shortlist",
+          "compressedSha256": "571bd3b37ef676bc30ca59422a50e1d715d84573dba63aeb252fc6cbac13377d",
+          "compressedBytes": 4595080,
+          "location": "zhen/lex.50.50.zhen.s2t.bin.gz"
+        },
+        {
+          "name": "model.zhen.intgemm.alphas.bin.gz",
+          "role": "model",
+          "compressedSha256": "7e46a0f1c0b3e55e5f2c18ad17d0eaa63f74725f560edcee5d73773a46d1ba98",
+          "compressedBytes": 32138001,
+          "location": "zhen/model.zhen.intgemm.alphas.bin.gz"
+        },
+        {
+          "name": "vocab.zhen.spm.gz",
+          "role": "vocab",
+          "compressedSha256": "66058900636b3f3dd1f33df02db9a692a815b04e84595d674e5fb45809c03e79",
+          "compressedBytes": 754733,
+          "location": "zhen/vocab.zhen.spm.gz"
+        }
+      ]
+    }
+  ]
+}

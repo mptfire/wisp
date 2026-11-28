@@ -72,6 +72,15 @@ class MainActivity : FragmentActivity() {
                     mediaLayoutStyle = interfacePrefs.getMediaLayoutStyle()
                 ))
             }
+            var translationSettings by remember {
+                mutableStateOf(
+                    com.wisp.app.translate.TranslationSettings(
+                        enabled = interfacePrefs.isTranslationEnabled(),
+                        autoTranslate = interfacePrefs.isAutoTranslate(),
+                        targetLanguage = interfacePrefs.getTranslationTargetLanguage()
+                    )
+                )
+            }
 
             LaunchedEffect(isDarkTheme) {
                 enableEdgeToEdge(
@@ -96,7 +105,10 @@ class MainActivity : FragmentActivity() {
             }
 
             WispTheme(isDarkTheme = isDarkTheme, accentColor = accentColor, isLargeText = isLargeText, themeName = themeName) {
-                CompositionLocalProvider(LocalMediaSettings provides effectiveMediaSettings) {
+                CompositionLocalProvider(
+                    LocalMediaSettings provides effectiveMediaSettings,
+                    com.wisp.app.translate.LocalTranslationSettings provides translationSettings
+                ) {
                     WispNavHost(
                         deepLinkUri = deepLinkUri.value,
                         onDeepLinkConsumed = { deepLinkUri.value = null },
@@ -118,6 +130,11 @@ class MainActivity : FragmentActivity() {
                                 videoAutoPlay = interfacePrefs.isVideoAutoPlay(),
                                 videoLoop = interfacePrefs.isVideoLoop(),
                                 mediaLayoutStyle = interfacePrefs.getMediaLayoutStyle()
+                            )
+                            translationSettings = com.wisp.app.translate.TranslationSettings(
+                                enabled = interfacePrefs.isTranslationEnabled(),
+                                autoTranslate = interfacePrefs.isAutoTranslate(),
+                                targetLanguage = interfacePrefs.getTranslationTargetLanguage()
                             )
                         }
                     )

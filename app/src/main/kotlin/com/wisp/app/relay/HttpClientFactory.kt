@@ -12,6 +12,7 @@ import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
+import java.net.UnknownHostException
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.TimeUnit
@@ -54,11 +55,23 @@ object HttpClientFactory {
     private val liveClients: MutableSet<OkHttpClient> =
         Collections.newSetFromMap(WeakHashMap())
 
+    private val torFailClosedDns = object : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            throw UnknownHostException("Clearnet DNS blocked while Tor is active: $hostname")
+        }
+    }
+
     private fun OkHttpClient.Builder.applyProxy(): OkHttpClient.Builder = apply {
         when (val t = torSocks) {
             TorSocks.Off -> {}
-            TorSocks.Pending -> proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved("127.0.0.1", 9)))
-            is TorSocks.Ready -> proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", t.port)))
+            TorSocks.Pending -> {
+                proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved("127.0.0.1", 9)))
+                dns(torFailClosedDns)
+            }
+            is TorSocks.Ready -> {
+                proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", t.port)))
+                dns(torFailClosedDns)
+            }
         }
     }
 

@@ -7,6 +7,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.wisp.app.relay.HttpClientFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -60,7 +61,7 @@ object AudioPlayerController {
         // Pause any currently-playing video so we don't double-play.
         PipController.pipState.value?.player?.pause()
 
-        val p = existing ?: ExoPlayer.Builder(ctx).build().also { newPlayer ->
+        val p = existing ?: HttpClientFactory.createExoPlayer(ctx).also { newPlayer ->
             attachListener(newPlayer)
             player = newPlayer
         }
